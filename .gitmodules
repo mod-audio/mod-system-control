@@ -1,0 +1,6 @@
+[submodule "loribu"]
+	path = loribu
+	url = git@github.com:ricardocrudo/loribu.git
+[submodule "mod-controller-proto"]
+	path = mod-controller-proto
+	url = git@github.com:moddevices/mod-controller-proto.git
