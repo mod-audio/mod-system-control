@@ -36,6 +36,14 @@ BUILD_C_FLAGS   = $(BASE_FLAGS) -std=gnu99 $(CFLAGS)
 BUILD_CXX_FLAGS = $(BASE_FLAGS) -std=gnu++11 $(CXXFLAGS)
 LINK_FLAGS      = $(LINK_OPTS) $(LDFLAGS) -Wl,--no-undefined
 
+# for serial port
+BASE_FLAGS     += $(shell pkg-config --cflags libserialport)
+LINK_FLAGS     += $(shell pkg-config --libs libserialport)
+
+# for systemd notify
+BASE_FLAGS     += $(shell pkg-config --cflags libsystemd)
+LINK_FLAGS     += $(shell pkg-config --libs libsystemd)
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Strict test build
 
@@ -78,5 +86,10 @@ clean:
 install: all
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 mod-system-control $(DESTDIR)$(BINDIR)
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+test: tests/socat-scope.sh $(TARGETS)
+	$< $(CURDIR)/mod-system-control
 
 # ---------------------------------------------------------------------------------------------------------------------
