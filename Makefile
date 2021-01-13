@@ -70,18 +70,21 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Build rules
 
-TARGETS = mod-system-control
+TARGETS = mod-system-control tests/full
 
 all: $(TARGETS)
 
 mod-system-control: system-control.c.o
 	$(CC) $< $(ALSA_CFLAGS) $(JACK_CFLAGS) $(BUILD_C_FLAGS) $(JACK_LIBS) $(ALSA_LIBS) $(LINK_FLAGS) -lm -o $@
 
+tests/full: tests/full.c.o system-control.c
+	$(CC) $< $(ALSA_CFLAGS) $(JACK_CFLAGS) $(BUILD_C_FLAGS) $(JACK_LIBS) $(ALSA_LIBS) $(LINK_FLAGS) -lm -o $@
+
 %.c.o: %.c
 	$(CC) $< $(BUILD_C_FLAGS) -c -o $@
 
 clean:
-	$(RM) $(TARGETS) *.o
+	$(RM) $(TARGETS) *.o tests/*.o
 
 install: all
 	install -d $(DESTDIR)$(BINDIR)

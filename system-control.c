@@ -13,9 +13,12 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include <libserialport.h>
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
+
+#ifndef MOD_SYSTEM_CONTROL_TESTS
+#include <libserialport.h>
+#endif
 
 // TODO put this in spec file
 #define MOD_SYSTEM_SERIAL_CMD_PREFIX "sys_"
@@ -26,6 +29,7 @@
 #define MOD_SYSTEM_SERIAL_CMD_BT_INFO MOD_SYSTEM_SERIAL_CMD_PREFIX "bti"
 #define MOD_SYSTEM_SERIAL_CMD_BT_DISC MOD_SYSTEM_SERIAL_CMD_PREFIX "btd"
 
+#ifndef MOD_SYSTEM_CONTROL_TESTS
 static volatile bool g_running = true;
 
 static void signal_handler(int sig)
@@ -112,6 +116,7 @@ static void serial_close(struct sp_port* const serialport)
     sp_close(serialport);
     sp_free_port(serialport);
 }
+#endif
 
 static uint8_t serial_read_until_zero(struct sp_port* const serialport, char buf[0xff])
 {
@@ -210,7 +215,7 @@ static uint8_t serial_read_until_zero(struct sp_port* const serialport, char buf
 static bool write_or_close(struct sp_port* serialport, const char* const resp)
 {
     errno = 0;
-    if (sp_nonblocking_write(serialport, resp, strlen(resp)+1) == SP_ERR_FAIL && errno == EIO)
+    if (sp_nonblocking_write(serialport, resp, strlen(resp)+1) == -SP_ERR_FAIL && errno == EIO)
         return false;
     return true;
 }
@@ -246,6 +251,7 @@ static bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff
     return true;
 }
 
+#ifndef MOD_SYSTEM_CONTROL_TESTS
 int main(int argc, char* argv[])
 {
     struct sp_port* serialport;
@@ -302,3 +308,4 @@ int main(int argc, char* argv[])
 
     return EXIT_SUCCESS;
 }
+#endif

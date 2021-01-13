@@ -1,2 +1,3 @@
 *.o
 mod-system-control
+tests/full
