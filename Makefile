@@ -16,20 +16,22 @@ BINDIR  = $(PREFIX)/bin
 # ---------------------------------------------------------------------------------------------------------------------
 # Set build and link flags
 
-BASE_FLAGS = -Wall -Wextra -pipe -fPIC -DPIC -pthread
-BASE_OPTS  = -O2 -fdata-sections -ffunction-sections
-LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,--gc-sections -Wl,-O1 -Wl,--as-needed
+BASE_FLAGS  = -Wall -Wextra -pipe -fPIC -DPIC -pthread -MD -MP -fno-common
+BASE_FLAGS += -Werror=implicit-function-declaration
+BASE_FLAGS += -Werror=shadow
+BASE_OPTS   = -O2 -fdata-sections -ffunction-sections
+LINK_OPTS   = -fdata-sections -ffunction-sections -Wl,--gc-sections -Wl,-O1 -Wl,--as-needed
 
 ifneq ($(SKIP_STRIPPING),true)
-LINK_OPTS += -Wl,--strip-all
+LINK_OPTS  += -Wl,--strip-all
 endif
 
 ifeq ($(DEBUG),true)
-BASE_FLAGS += -DDEBUG -O0 -g
-LINK_OPTS   =
+BASE_FLAGS  += -DDEBUG -O0 -g
+LINK_OPTS    =
 else
-BASE_FLAGS += -DNDEBUG $(BASE_OPTS) -fvisibility=hidden
-CXXFLAGS   += -fvisibility-inlines-hidden
+BASE_FLAGS  += -DNDEBUG $(BASE_OPTS) -fvisibility=hidden
+CXXFLAGS    += -fvisibility-inlines-hidden
 endif
 
 BUILD_C_FLAGS   = $(BASE_FLAGS) -std=gnu99 $(CFLAGS)
@@ -70,21 +72,24 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Build rules
 
-TARGETS = mod-system-control tests/full
+SOURCES = main.c reply.c serial_io.c serial_rw.c
+OBJECTS = $(SOURCES:%.c=build/%.c.o)
+TARGETS = mod-system-control
 
 all: $(TARGETS)
 
-mod-system-control: system-control.c.o
-	$(CC) $< $(ALSA_CFLAGS) $(JACK_CFLAGS) $(BUILD_C_FLAGS) $(JACK_LIBS) $(ALSA_LIBS) $(LINK_FLAGS) -lm -o $@
+mod-system-control: $(OBJECTS)
+	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@
 
-tests/full: tests/full.c.o system-control.c
-	$(CC) $< $(ALSA_CFLAGS) $(JACK_CFLAGS) $(BUILD_C_FLAGS) $(JACK_LIBS) $(ALSA_LIBS) $(LINK_FLAGS) -lm -o $@
+# tests/full: tests/full.c.o system-control.c
+# 	$(CC) $< $(ALSA_CFLAGS) $(JACK_CFLAGS) $(BUILD_C_FLAGS) $(JACK_LIBS) $(ALSA_LIBS) $(LINK_FLAGS) -lm -o $@
 
-%.c.o: %.c
+build/%.c.o: src/%.c
+	-$(shell mkdir -p build)
 	$(CC) $< $(BUILD_C_FLAGS) -c -o $@
 
 clean:
-	$(RM) $(TARGETS) *.o tests/*.o
+	rm -rf $(TARGETS) build/
 
 install: all
 	install -d $(DESTDIR)$(BINDIR)
@@ -94,5 +99,9 @@ install: all
 
 test: tests/socat-scope.sh $(TARGETS)
 	$< $(CURDIR)/mod-system-control
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+-include $(OBJECTS:%.o=%.d)
 
 # ---------------------------------------------------------------------------------------------------------------------
