@@ -22,5 +22,5 @@ typedef enum sp_read_error_status {
 } sp_read_error_status;
 
 sp_read_error_status serial_read_msg_until_zero(struct sp_port* serialport, char buf[0xff]);
-bool serial_read_ignore_until_zero(struct sp_port* serialport);
+sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport);
 bool write_or_close(struct sp_port* serialport, const char* resp);

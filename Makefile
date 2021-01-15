@@ -30,7 +30,7 @@ ifeq ($(DEBUG),true)
 BASE_FLAGS  += -DDEBUG -O0 -g
 LINK_OPTS    =
 else
-BASE_FLAGS  += -DNDEBUG $(BASE_OPTS) -fvisibility=hidden
+BASE_FLAGS  += $(BASE_OPTS) -fvisibility=hidden
 CXXFLAGS    += -fvisibility-inlines-hidden
 endif
 
@@ -40,11 +40,11 @@ LINK_FLAGS      = $(LINK_OPTS) $(LDFLAGS) -Wl,--no-undefined
 
 # for serial port
 BASE_FLAGS     += $(shell pkg-config --cflags libserialport)
-LINK_FLAGS     += $(shell pkg-config --libs libserialport)
+LINK_FLAGS_SP   = $(shell pkg-config --libs libserialport)
 
 # for systemd notify
 BASE_FLAGS     += $(shell pkg-config --cflags libsystemd)
-LINK_FLAGS     += $(shell pkg-config --libs libsystemd)
+LINK_FLAGS_SD   = $(shell pkg-config --libs libsystemd)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Strict test build
@@ -72,21 +72,28 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Build rules
 
-SOURCES = main.c reply.c serial_io.c serial_rw.c
-OBJECTS = $(SOURCES:%.c=build/%.c.o)
-TARGETS = mod-system-control
+SOURCES_main = main.c reply.c serial_io.c serial_rw.c
+SOURCES_test = test.c fakeserial.c reply.c serial_rw.c
+OBJECTS_main = $(SOURCES_main:%.c=build/%.c.o)
+OBJECTS_test = $(SOURCES_test:%.c=build/%.c.o)
+
+TARGETS = mod-system-control test
 
 all: $(TARGETS)
 
-mod-system-control: $(OBJECTS)
+mod-system-control: $(OBJECTS_main)
+	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) $(LINK_FLAGS_SP) $(LINK_FLAGS_SD) -lm -o $@
+
+test: $(OBJECTS_test)
 	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@
 
-# tests/full: tests/full.c.o system-control.c
-# 	$(CC) $< $(ALSA_CFLAGS) $(JACK_CFLAGS) $(BUILD_C_FLAGS) $(JACK_LIBS) $(ALSA_LIBS) $(LINK_FLAGS) -lm -o $@
+build/test.c.o: src/test.c
+	-$(shell mkdir -p build)
+	$(CC) $< $(BUILD_C_FLAGS) -c -o $@
 
 build/%.c.o: src/%.c
 	-$(shell mkdir -p build)
-	$(CC) $< $(BUILD_C_FLAGS) -c -o $@
+	$(CC) $< $(BUILD_C_FLAGS) -DNDEBUG -c -o $@
 
 clean:
 	rm -rf $(TARGETS) build/
@@ -97,11 +104,7 @@ install: all
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-test: tests/socat-scope.sh $(TARGETS)
-	$< $(CURDIR)/mod-system-control
-
-# ---------------------------------------------------------------------------------------------------------------------
-
--include $(OBJECTS:%.o=%.d)
+-include $(OBJECTS_main:%.o=%.d)
+-include $(OBJECTS_test:%.o=%.d)
 
 # ---------------------------------------------------------------------------------------------------------------------

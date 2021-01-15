@@ -1,0 +1,229 @@
+#!/bin/bash
+
+function lin_conv {
+    x1=$1
+    x2=$2
+    y1=$3
+    y2=$4
+    x=$5
+
+    # a = (y2 - y1) / (x2 - x1)
+    # b = y2 - a*x2
+    # y = a*x + b
+    # warn: dc of busybox doesn't support register and doesn't require to underscore negative number
+    a=$(dc <<< "$y2 $y1 - $x2 $x1 - / p")
+    b=$(dc <<< "$y2 $a $x2 * - p")
+    y=$(dc <<< "$a $x * $b + p")
+
+    echo $y | awk '{print sprintf("%.0f",$1);}'
+}
+
+function set_pga {
+    echo # nothing
+}
+
+function get_pga {
+    x=8
+    echo $(lin_conv 0 48 -12 12 $x)
+}
+
+function set_stage {
+    echo # nothing
+}
+
+function get_stage {
+    echo "Low"
+}
+
+function set_dac {
+    echo # nothing
+}
+
+function get_dac {
+    x=255
+    echo $(lin_conv 0 255 -127.5 0 $x)
+}
+
+function set_hp_vol {
+    echo # nothing
+}
+
+function get_hp_vol {
+    x=9
+    echo $(lin_conv 0 15 -33 12 $x)
+}
+
+function set_tbp {
+    echo # nothing
+}
+
+function get_tbp {
+    # TODO verify this value
+    echo "off"
+}
+
+# NOTE: we do not have this for the Duo X
+function set_hp_bypass {
+    echo # nothing
+}
+
+# NOTE: we do not have this for the Duo X
+function get_hp_bypass {
+    echo "off"
+}
+
+function get_xvol {
+    echo 8
+}
+
+function get_dvol {
+    echo 8
+}
+
+function set_xvol {
+    echo # nothing
+}
+
+function set_dvol {
+    echo # nothing
+}
+
+# NOTE: Duo X only stuff follows
+function get_cvhp {
+    echo "hp"
+}
+function get_cvexp {
+    echo "cv"
+}
+function get_exppedal {
+    echo "tip"
+}
+
+function get_dall_in {
+    val1=$(get_dvol 1)
+    val2=$(get_dvol 2)
+    echo "${val1}|${val2}"
+}
+
+function get_dall_out {
+    val1=$(get_dac 1)
+    val2=$(get_dac 2)
+    val3=$(get_hp_bypass | grep -q "on" && echo "2" || echo "1")
+    echo "${val1}|${val2}|${val3}"
+}
+
+function get_xall_in {
+    val1=$(get_xvol 1)
+    val2=$(get_xvol 2)
+    val3=$(get_cvexp | grep -q "exp" && echo "1" || echo "0")
+    val4=$(get_exppedal | grep -q "ring" && echo "1" || echo "0")
+    echo "${val1}|${val2}|${val3}|${val4}"
+}
+
+function get_xall_out {
+    val1=$(get_dac 1)
+    val2=$(get_dac 2)
+    val3=$(get_hp_vol)
+    val4=$(get_cvhp | grep -q "cv" && echo "1" || echo "0")
+    echo "${val1}|${val2}|${val3}|${val4}"
+}
+
+function main {
+    SOURCE=$1
+    CHANNEL=$2
+    CONTROL=$3
+    VALUE=$4
+
+    if [[ "$SOURCE" == "save" ]]; then
+        echo # nothing here
+
+    elif [[ "$SOURCE" == "in" ]]; then
+        if [[ "$VALUE" == "" ]]; then
+            if [[ "$CHANNEL" == "dall" ]]; then
+                get_dall_in
+            elif [[ "$CHANNEL" == "xall" ]]; then
+                get_xall_in
+            elif [[ "$CONTROL" == "vol" ]]; then
+                get_pga $CHANNEL
+            elif [[ "$CONTROL" == "stg" ]]; then
+                get_stage $CHANNEL
+            elif [[ "$CONTROL" == "xvol" ]]; then
+                get_xvol $CHANNEL
+            elif [[ "$CONTROL" == "dvol" ]]; then
+                get_dvol $CHANNEL
+            else
+                echo "unknown in command $CONTROL"
+            fi
+        else
+            if [[ "$CONTROL" == "vol" ]]; then
+                set_pga $CHANNEL $VALUE
+            elif [[ "$CONTROL" == "stg" ]]; then
+                set_stage $CHANNEL $VALUE
+            elif [[ "$CONTROL" == "xvol" ]]; then
+                set_xvol $CHANNEL $VALUE
+            elif [[ "$CONTROL" == "dvol" ]]; then
+                set_dvol $CHANNEL $VALUE
+            else
+                echo "unknown in command $CONTROL"
+            fi
+        fi
+
+    elif [[ "$SOURCE" == "out" ]]; then
+        if [[ "$VALUE" == "" ]]; then
+            if [[ "$CHANNEL" == "dall" ]]; then
+                get_dall_out
+            elif [[ "$CHANNEL" == "xall" ]]; then
+                get_xall_out
+            elif [[ "$CONTROL" == "dvol" ]] || [[ "$CONTROL" == "xvol" ]]; then
+                get_dac $CHANNEL
+            else
+                echo "unknown out command $CONTROL"
+            fi
+        else
+            if [[ "$CONTROL" == "dvol" ]] || [[ "$CONTROL" == "xvol" ]]; then
+                set_dac $CHANNEL $VALUE
+            else
+                echo "unknown out command $CONTROL"
+            fi
+        fi
+
+    elif [[ "$SOURCE" == "tbp" ]]; then
+        VALUE=$3
+
+        if [[ "$VALUE" == "" ]]; then
+            get_tbp $CHANNEL
+        fi
+
+    elif [[ "$SOURCE" == "hp" ]]; then
+        CONTROL=$2
+        VALUE=$3
+
+        if [[ "$VALUE" == "" ]]; then
+            if [[ "$CONTROL" == "dvol" ]] || [[ "$CONTROL" == "xvol" ]]; then
+                get_hp_vol
+            elif [[ "$CONTROL" == "byp" ]]; then
+                get_hp_bypass
+            fi
+        fi
+
+    # Duo X CV stuff
+    elif [[ "$SOURCE" == "cvhp" ]]; then
+        VALUE=$2
+        if [[ "$VALUE" == "" ]]; then
+            get_cvhp
+        fi
+    elif [[ "$SOURCE" == "cvexp" ]]; then
+        VALUE=$2
+        if [[ "$VALUE" == "" ]]; then
+            get_cvexp
+        fi
+    elif [[ "$SOURCE" == "exppedal" ]]; then
+        VALUE=$2
+        if [[ "$VALUE" == "" ]]; then
+            get_exppedal
+        fi
+    fi
+}
+
+# run Forrest, run
+main $@

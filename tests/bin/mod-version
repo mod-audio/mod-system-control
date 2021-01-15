@@ -1,0 +1,23 @@
+#!/bin/sh
+
+if [ "${1}" = "release" ]; then
+    echo "v1.10.0.1888"
+elif [ "${1}" = "version" ]; then
+    echo "v1.10.0"
+elif [ "${1}" = "build" ]; then
+    echo "1888"
+elif [ "${1}" = "label" ]; then
+    echo ""
+elif [ "${1}" = "version.build" ]; then
+    echo "v1.10.0.1888"
+elif [ "${1}" = "controller" ]; then
+    echo "ab7a1f5af57b05249530efb7ea645119ca0a7df5"
+elif [ "${1}" = "restore" ]; then
+    echo "625f35a6d03643f138a73fa1e2a8"
+elif [ "${1}" = "system" ]; then
+    echo "344178712cd4084bd1260a9e5e5ce0fa23e16a0e"
+else
+    exit 1
+fi
+
+exit 0

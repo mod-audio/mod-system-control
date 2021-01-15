@@ -29,25 +29,62 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
     // read command
     reading_offset = 0;
     ret = sp_blocking_read(serialport, buf, MOD_SYSTEM_SERIAL_CMD_SIZE + 1, 500);
+    fprintf(stderr, "%s sp_blocking_read first read ret %d\n", __func__, ret);
 
     if (ret < MOD_SYSTEM_SERIAL_CMD_SIZE + 1)
     {
-        if (ret != SP_OK && (ret != 1 || buf[0] != '\0'))
+        // there was nothing to read
+        if (ret == 0)
+            return SP_READ_ERROR_NO_DATA;
+
+        // if there is data, see if it is valid
+        if (ret > 0)
+        {
+            // check for all zeros, treat as if we read nothing
+            static const char allzeros[MOD_SYSTEM_SERIAL_CMD_SIZE + 1];
+
+            if (memcmp(buf, allzeros, ret) == 0)
+                return SP_READ_ERROR_NO_DATA;
+
+            // if we read the beginning of a valid message, maybe we got cut off, let's check for that
+            if (strncmp(buf, MOD_SYSTEM_SERIAL_CMD_PREFIX, ret) == 0)
+            {
+                reading_offset += ret;
+                ret = sp_blocking_read(serialport, buf + reading_offset, MOD_SYSTEM_SERIAL_CMD_SIZE + 1 - reading_offset, 50);
+
+                if (ret + reading_offset == MOD_SYSTEM_SERIAL_CMD_SIZE + 1)
+                    goto check_valid_cmd;
+            }
+        }
+
+#if 1
+        // TESTING we should not print invalid chars
+        if (ret > 0)
+        {
+            char buf2[0xff];
+            memcpy(buf2, buf, ret);
+            buf[ret] = 0;
+            fprintf(stderr, "%s failed, reading command timed out or error, ret %d, value '%s'\n", __func__, ret, buf2);
+        }
+        else
+#endif
             fprintf(stderr, "%s failed, reading command timed out or error, ret %d\n", __func__, ret);
-        return 0;
+
+        return SP_READ_ERROR_INVALID_DATA;
     }
 
+check_valid_cmd:
     // check if message is valid
     if (strncmp(buf, MOD_SYSTEM_SERIAL_CMD_PREFIX, strlen(MOD_SYSTEM_SERIAL_CMD_PREFIX)) != 0)
     {
 #if 1
         // TESTING we should not print invalid chars
         buf[MOD_SYSTEM_SERIAL_CMD_SIZE] = '\0';
-        fprintf(stderr, "%s failed, invalid command '%s' receive\n", __func__, buf);
+        fprintf(stderr, "%s failed, invalid command '%s' received\n", __func__, buf);
 #else
         fprintf(stderr, "%s failed, invalid command received\n", __func__);
 #endif
-        return 0;
+        return SP_READ_ERROR_INVALID_DATA;
     }
 
     // message was read in full (only has command), we can stop here
@@ -57,7 +94,7 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
     if (buf[MOD_SYSTEM_SERIAL_CMD_SIZE] != ' ')
     {
         fprintf(stderr, "%s failed, command is missing space delimiter\n", __func__);
-        return 0;
+        return SP_READ_ERROR_INVALID_DATA;
     }
 
     // message has more data on it, let's fetch the data size
@@ -67,7 +104,7 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
     if (ret < MOD_SYSTEM_SERIAL_DATA_SIZE + 1)
     {
         fprintf(stderr, "%s failed, reading command data size timed out or error\n", __func__);
-        return 0;
+        return SP_READ_ERROR_INVALID_DATA;
     }
 
     // check that data size is correct
@@ -85,11 +122,11 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
         if (data_size <= 0 || data_size > 0xff - reading_offset - 1)
         {
             fprintf(stderr, "%s failed, incorrect command data size '%s'\n", __func__, data_size_str);
-            return 0;
+            return SP_READ_ERROR_INVALID_DATA;
         }
 
         // NOTE does not include cmd and size prefix
-        total_msg_size = (uint8_t)data_size;
+        total_msg_size = (unsigned int)data_size;
     }
 
     // read the full message now
@@ -99,7 +136,7 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
     if (ret < (int)total_msg_size)
     {
         fprintf(stderr, "%s failed, reading full message data timed out or error\n", __func__);
-        return 0;
+        return SP_READ_ERROR_INVALID_DATA;
     }
 
     // add cmd and data size for the correct total size
@@ -108,13 +145,13 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
     if (buf[total_msg_size] != '\0')
     {
         fprintf(stderr, "%s failed, full message is not null terminated\n", __func__);
-        return 0;
+        return SP_READ_ERROR_INVALID_DATA;
     }
 
-    return (uint8_t)total_msg_size;
+    return total_msg_size;
 }
 
-bool serial_read_ignore_until_zero(struct sp_port* serialport)
+sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport)
 {
     // TODO
     return true;
