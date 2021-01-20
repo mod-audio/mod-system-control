@@ -22,7 +22,9 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
     // read command
     reading_offset = 0;
     ret = sp_blocking_read(serialport, buf, _CMD_SYS_LENGTH + 1, 500);
+    /*
     fprintf(stderr, "%s sp_blocking_read first read ret %d\n", __func__, ret);
+    */
 
     if (ret < _CMD_SYS_LENGTH + 1)
     {
@@ -50,7 +52,7 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
             }
         }
 
-#if 1
+#if 0
         // TESTING we should not print invalid chars
         if (ret > 0)
         {
@@ -70,7 +72,7 @@ check_valid_cmd:
     // check if message is valid
     if (strncmp(buf, _CMD_SYS_PREFIX, strlen(_CMD_SYS_PREFIX)) != 0)
     {
-#if 1
+#if 0
         // TESTING we should not print invalid chars
         buf[_CMD_SYS_LENGTH] = '\0';
         fprintf(stderr, "%s failed, invalid command '%s' received\n", __func__, buf);
@@ -155,7 +157,6 @@ sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport)
     for (;;)
     {
         ret = sp_blocking_read(serialport, &c, 1, 500);
-        fprintf(stderr, "%s sp_blocking_read has %i\n", __func__, ret);
 
         if (ret == 0)
             return SP_READ_ERROR_NO_DATA;
@@ -207,7 +208,9 @@ bool serial_read_response(struct sp_port* serialport, char buf[0xff])
         if (ret != 2 || buf[4] != '\0')
             return false;
 
+        /*
         fprintf(stderr, "%s ok with err, full message is \"%s\"\n", __func__, buf);
+        */
         return true;
     }
 
@@ -222,7 +225,9 @@ bool serial_read_response(struct sp_port* serialport, char buf[0xff])
 
         if (buf[reading_offset] == '\0')
         {
+            /*
             fprintf(stderr, "%s ok, full message is \"%s\"\n", __func__, buf);
+            */
             return true;
         }
 

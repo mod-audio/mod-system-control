@@ -190,6 +190,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     // --------------------------------------------------------------------------------------------
+    // test random gibberish and that we can still proceed
 
     printf("TEST: write writing random gibberish from hmi side\n");
     assert(write_or_close(serialport_hmi, "Lorem ipsum dolor sit amet"));
@@ -205,24 +206,14 @@ int main(int argc, char* argv[])
     {
         printf("TEST: read gibberish from sys side\n");
         ret = serial_read_msg_until_zero(serialport_sys, buf);
-        // for sure there are more than 48 attempts to decode stuff
-        if (i < 48) {
-            assert(ret == SP_READ_ERROR_INVALID_DATA);
-        // but we expect data to end at some point
-        } else {
-            assert(ret == SP_READ_ERROR_INVALID_DATA || ret == SP_READ_ERROR_NO_DATA);
-            if (ret == SP_READ_ERROR_NO_DATA)
-                break;
-        }
+        assert(ret == SP_READ_ERROR_INVALID_DATA || ret == SP_READ_ERROR_NO_DATA);
         printf("\n");
 
-        printf("TEST: reply to gibberish\n");
-        assert(parse_and_reply_to_message(serialport_sys, buf));
-        printf("\n");
+        if (ret == SP_READ_ERROR_NO_DATA)
+            break;
 
-        printf("TEST: read gibberish command reply\n");
-        assert(serial_read_response(serialport_hmi, buf));
-        assert(strcmp(buf, "r -1") == 0);
+        printf("TEST: fixup serial after gibberish\n");
+        assert(serial_read_ignore_until_zero(serialport_sys) == 0);
         printf("\n");
     }
 
@@ -240,6 +231,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     // --------------------------------------------------------------------------------------------
+    // now test all commands and their expected output
 
     test_hmi_command();
 

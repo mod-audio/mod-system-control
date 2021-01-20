@@ -21,6 +21,7 @@
 #endif
 
 #define SP_BUFFER_SIZE 4096
+// #define DEBUG_PRINT_SP_OPERATIONS
 
 /* ----------------------------------------------------------------------------------------------------------------- */
 
@@ -154,6 +155,7 @@ fail_bread_init:
 enum sp_return sp_blocking_read(struct sp_port *port, void *buf, size_t count, unsigned int timeout_ms)
 {
     const uint32_t read = loribu_read(port->bread.loribu, buf, count);
+#ifdef DEBUG_PRINT_SP_OPERATIONS
     if (read == count)
     {
         ((char*)buf)[count] = '\0';
@@ -161,6 +163,7 @@ enum sp_return sp_blocking_read(struct sp_port *port, void *buf, size_t count, u
     }
     else
         printf("sp_blocking_read(%p, %p, %lu) -> %u (fail)\n", port, buf, count, read);
+#endif
     return (int)read;
 }
 
@@ -173,12 +176,11 @@ enum sp_return sp_nonblocking_write(struct sp_port *port, const void *buf, size_
     }
 
     const uint32_t written = loribu_write(port->otherside->bread.loribu, buf, count);
+#ifdef DEBUG_PRINT_SP_OPERATIONS
     printf("sp_nonblocking_write(%p, \"%s\", %lu) -> %u\n", port, (const char*)buf, count, written);
+#endif
 
-    if (written != count)
-        return SP_ERR_FAIL;
-
-    return (int)written;
+    return written == count ? (int)written : SP_ERR_FAIL;
 }
 
 enum sp_return sp_close(struct sp_port* serialport)

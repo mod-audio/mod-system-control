@@ -16,10 +16,12 @@
 
 bool execute_and_get_output(char buf[0xff], const char* argv[])
 {
+    /*
     printf("%s(%p) => \"%s", __func__, argv, argv[0]);
     for (int i=1; argv[i] != NULL; ++i)
         printf(" %s", argv[i]);
     printf("\"\n");
+    */
 
     int pipefd[2];
 
@@ -62,7 +64,9 @@ bool execute_and_get_output(char buf[0xff], const char* argv[])
     if (r <= 0 || r >= 0xff)
         goto error;
 
+    /*
     printf("%s(%p) got %li bytes\n", __func__, argv, r);
+    */
 
     if (buf[r-1] == '\n')
         buf[r-1] = '\0';
