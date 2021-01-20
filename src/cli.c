@@ -6,6 +6,7 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <errno.h>
@@ -14,14 +15,51 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-bool execute_and_get_output(char buf[0xff], const char* argv[])
+// #define DEBUG_PRINT_EXEC_ARGV
+
+bool execute(const char* argv[])
 {
-    /*
+#ifdef DEBUG_PRINT_EXEC_ARGV
     printf("%s(%p) => \"%s", __func__, argv, argv[0]);
     for (int i=1; argv[i] != NULL; ++i)
         printf(" %s", argv[i]);
     printf("\"\n");
-    */
+#endif
+
+    const pid_t pid = vfork();
+
+    // error
+    if (pid == -1)
+        return false;
+
+    // child process
+    if (pid == 0)
+    {
+        close(STDIN_FILENO);
+
+        execvp(argv[0], (char* const*)argv);
+
+        fprintf(stderr, "cannot exec \"%s\": %s\n", argv[0], strerror(errno));
+        _exit(EXIT_FAILURE);
+        return false;
+    }
+
+    // wait for process to finish
+    int state;
+    if (waitpid(pid, &state, 0x0) < 0)
+        return false;
+
+    return true;
+}
+
+bool execute_and_get_output(char buf[0xff], const char* argv[])
+{
+#ifdef DEBUG_PRINT_EXEC_ARGV
+    printf("%s(%p) => \"%s", __func__, argv, argv[0]);
+    for (int i=1; argv[i] != NULL; ++i)
+        printf(" %s", argv[i]);
+    printf("\"\n");
+#endif
 
     int pipefd[2];
 
@@ -47,7 +85,7 @@ bool execute_and_get_output(char buf[0xff], const char* argv[])
         execvp(argv[0], (char* const*)argv);
 
         fprintf(stderr, "cannot exec \"%s\": %s\n", argv[0], strerror(errno));
-        _exit(1);
+        _exit(EXIT_FAILURE);
         return false;
     }
 
@@ -64,9 +102,9 @@ bool execute_and_get_output(char buf[0xff], const char* argv[])
     if (r <= 0 || r >= 0xff)
         goto error;
 
-    /*
+#ifdef DEBUG_PRINT_EXEC_ARGV
     printf("%s(%p) got %li bytes\n", __func__, argv, r);
-    */
+#endif
 
     if (buf[r-1] == '\n')
         buf[r-1] = '\0';

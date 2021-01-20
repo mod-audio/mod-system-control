@@ -16,6 +16,14 @@
 // "sys_ver 07 version" -> "version"
 #define SYS_CMD_ARG_START (_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2)
 
+static bool execute_ignoring_output(struct sp_port* serialport, const char* argv[])
+{
+    if (execute(argv))
+        return write_or_close(serialport, "r 0");
+
+    return write_or_close(serialport, "r -1");
+}
+
 static bool execute_and_write_output_resp(struct sp_port* serialport, const char* argv[])
 {
     char cmdbuf[0xff + 4];
@@ -40,7 +48,7 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
         const char* argvs = msg + SYS_CMD_ARG_START;
 
         // parsing arguments
-        const char *io, *value;
+        const char *io, *value = NULL;
         char channel[2];
 
         // io 0 = in, 1 = out
@@ -49,20 +57,26 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
         // channel 1, 2 or 0 for both
         channel[0] = *argvs++;
         channel[1] = '\0';
-        argvs++;
-        // mixer value
-        value = argvs;
 
-        const char* argv[] = { "mod-amixer", io, channel, value, NULL };
+        // mixer value (optional)
+        if (*argvs != '\0')
+            value = ++argvs;
 
-        return execute_and_write_output_resp(serialport, argv);
+        const char* argv[] = { "mod-amixer", io, channel, "xvol", value, NULL };
+
+        return value == NULL ? execute_and_write_output_resp(serialport, argv)
+                             : execute_ignoring_output(serialport, argv);
     }
 
     if (strncmp(msg, CMD_SYS_HP_GAIN, _CMD_SYS_LENGTH) == 0)
     {
-        const char* argv[] = { "mod-amixer", "hp", "xvol", msg + SYS_CMD_ARG_START, NULL };
+        const char* const value = strlen(msg) > _CMD_SYS_LENGTH
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+        const char* argv[] = { "mod-amixer", "hp", "xvol", value, NULL };
 
-        return execute_and_write_output_resp(serialport, argv);
+        return value == NULL ? execute_and_write_output_resp(serialport, argv)
+                             : execute_ignoring_output(serialport, argv);
     }
 
     if (strncmp(msg, CMD_SYS_BT_STATUS, _CMD_SYS_LENGTH) == 0)
@@ -76,7 +90,7 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
     {
         const char* argv[] = { "mod-bluetooth", "discovery", NULL };
 
-        return execute_and_write_output_resp(serialport, argv);
+        return execute_ignoring_output(serialport, argv);
     }
 
     if (strncmp(msg, CMD_SYS_SYSTEMCTL, _CMD_SYS_LENGTH) == 0)

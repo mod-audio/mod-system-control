@@ -6,6 +6,8 @@
 #include "serial_rw.h"
 #include "reply.h"
 
+#include "../mod-controller-proto/mod-protocol.h"
+
 #ifndef DEBUG
  #define DEBUG
 #endif
@@ -16,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 
+static void update_syscmd_size(char cmdbuf[0xff]);
 static void test_hmi_command();
 
 int main(int argc, char* argv[])
@@ -233,7 +236,139 @@ int main(int argc, char* argv[])
     // --------------------------------------------------------------------------------------------
     // now test all commands and their expected output
 
-    test_hmi_command();
+    char cmdbuf[0xff], respbuf[0xff];
+
+    // get (in, channel 1)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 0, 1, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 8);
+    cmdbuf[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 5] = '\0';
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // get (in, channel 2)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 0, 2, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 8);
+    cmdbuf[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 5] = '\0';
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // get (in, both channels)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 0, 0, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 8);
+    cmdbuf[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 5] = '\0';
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // get (out, channel 1)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 1, 1, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 0);
+    cmdbuf[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 5] = '\0';
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // get (out, channel 2)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 1, 1, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 0);
+    cmdbuf[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 5] = '\0';
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // get (out, both channels)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 1, 0, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 0);
+    cmdbuf[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 5] = '\0';
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set (in, channel 1)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 0, 1, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set (in, channel 2)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 0, 2, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set (in, both channels)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 0, 0, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set (out, channel 1)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 1, 1, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set (out, channel 2)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 1, 2, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set (out, both channels)
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_GAIN, 0, 1, 0, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // get hp
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_HP_GAIN, 0, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_INT, 0, 12);
+    cmdbuf[_CMD_SYS_LENGTH] = '\0';
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    // set hp
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_HP_GAIN, 0, 0.0);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_BT_STATUS);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "Unavailable||(none)");
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_BT_DISCOVERY);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_SYSTEMCTL, 0, "jack2");
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "inactive");
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_SYSTEMCTL, 0, "ssh");
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "active");
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_VERSION, 0, "version");
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "v1.10.0");
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_VERSION, 0, "restore");
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "625f35a6d03643f138a73fa1e2a8");
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_VERSION, 0, "system");
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "344178712cd4084bd1260a9e5e5ce0fa23e16a0e");
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_VERSION, 0, "controller");
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "ab7a1f5af57b05249530efb7ea645119ca0a7df5");
+    update_syscmd_size(cmdbuf);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_SERIAL);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "MDW01D01-00001");
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
 
     // --------------------------------------------------------------------------------------------
 
@@ -246,6 +381,41 @@ int main(int argc, char* argv[])
     (void)argv;
 }
 
-static void test_hmi_command()
+static void update_syscmd_size(char cmdbuf[0xff])
 {
+    static const char hexadecimals[] = {
+        '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'
+    };
+    const size_t len = strlen(cmdbuf + (_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2));
+    cmdbuf[_CMD_SYS_LENGTH + 1] = hexadecimals[len / 16];
+    cmdbuf[_CMD_SYS_LENGTH + 2] = hexadecimals[len & 15];
+}
+
+static void test_hmi_command(struct sp_port* const serialport_hmi,
+                             struct sp_port* const serialport_sys,
+                             const char* const cmd,
+                             const char* const resp)
+{
+    char buf[0xff];
+    int ret;
+
+    printf("TEST: write '%s' from hmi side\n", cmd);
+    assert(write_or_close(serialport_hmi, cmd));
+    printf("\n");
+
+    printf("TEST: read '%s' from sys side\n", cmd);
+    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    assert(ret == (int)strlen(cmd));
+    assert(strcmp(buf, cmd) == 0);
+    printf("\n");
+
+    printf("TEST: reply to '%s'\n", cmd);
+    assert(parse_and_reply_to_message(serialport_sys, buf));
+    printf("\n");
+
+    printf("TEST: read '%s' reply\n", cmd);
+    assert(serial_read_response(serialport_hmi, buf));
+    printf("TEST: read '%s' reply -> '%s' vs '%s'\n", cmd, buf, resp);
+    assert(strcmp(buf, resp) == 0);
+    printf("\n");
 }

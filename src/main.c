@@ -31,7 +31,6 @@ int main(int argc, char* argv[])
     const char* serial;
     int baudrate;
     char buf[0xff];
-    sp_read_error_status status;
 
     if (argc <= 2)
     {
