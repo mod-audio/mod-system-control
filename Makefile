@@ -50,8 +50,8 @@ LINK_FLAGS_SD   = $(shell pkg-config --libs libsystemd)
 # Strict test build
 
 ifeq ($(TESTBUILD),true)
-BASE_FLAGS += -Werror -Wabi=98 -Wcast-qual -Wclobbered -Wconversion -Wdisabled-optimization
-BASE_FLAGS += -Wdouble-promotion -Wfloat-equal -Wlogical-op -Wpointer-arith -Wsign-conversion
+BASE_FLAGS += -Werror -Wabi=98 -Wclobbered -Wconversion -Wdisabled-optimization -Wno-sign-conversion
+BASE_FLAGS += -Wdouble-promotion -Wfloat-equal -Wlogical-op -Wpointer-arith
 BASE_FLAGS += -Wformat=2 -Woverlength-strings
 BASE_FLAGS += -Wformat-truncation=2 -Wformat-overflow=2
 BASE_FLAGS += -Wstringop-overflow=4 -Wstringop-truncation
@@ -61,34 +61,33 @@ BASE_FLAGS += -Wstrict-aliasing -fstrict-aliasing
 BASE_FLAGS += -Wstrict-overflow -fstrict-overflow
 BASE_FLAGS += -Wduplicated-branches -Wduplicated-cond -Wnull-dereference
 CFLAGS     += -Winit-self -Wjump-misses-init -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes -Wwrite-strings
-CXXFLAGS   += -Wc++0x-compat -Wc++11-compat
-CXXFLAGS   += -Wnon-virtual-dtor -Woverloaded-virtual
-CXXFLAGS   += -Wzero-as-null-pointer-constant
-ifneq ($(DEBUG),true)
-CXXFLAGS   += -Weffc++
-endif
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Build rules
 
-SOURCES_main = main.c cli.c reply.c serial_io.c serial_rw.c
-SOURCES_test = test.c cli.c fakeserial.c reply.c serial_rw.c
-OBJECTS_main = $(SOURCES_main:%.c=build/%.c.o)
-OBJECTS_test = $(SOURCES_test:%.c=build/%.c.o)
+SOURCES_main      = main.c cli.c reply.c serial_io.c serial_rw.c
+SOURCES_test_fake = test.c cli.c fakeserial.c reply.c serial_rw.c
+SOURCES_test_real = test.c cli.c serial_io.c reply.c serial_rw.c
+OBJECTS_main      = $(SOURCES_main:%.c=build/%.c.o)
+OBJECTS_test_fake = $(SOURCES_test_fake:%.c=build/%.c.o)
+OBJECTS_test_real = $(SOURCES_test_real:%.c=build/%.c.o)
 
-TARGETS = mod-system-control test
+TARGETS = mod-system-control test-fake test-real
 
 all: $(TARGETS)
 
 mod-system-control: $(OBJECTS_main)
 	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) $(LINK_FLAGS_SP) $(LINK_FLAGS_SD) -lm -o $@
 
-test: $(OBJECTS_test) /var/cache/mod/tag
+test-fake: $(OBJECTS_test_fake) /var/cache/mod/tag
 	$(CC) $(filter %.o,$^) $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@
 
-testrun: test
-	env PATH=$(CURDIR)/tests/bin:$(PATH) ./test
+test-real: $(OBJECTS_test_real) /var/cache/mod/tag
+	$(CC) $(filter %.o,$^) $(BUILD_C_FLAGS) $(LINK_FLAGS) $(LINK_FLAGS_SP) -lm -o $@
+
+test-fake-run: test-fake
+	env PATH=$(CURDIR)/tests/bin:$(PATH) ./test-fake
 
 /var/cache/mod/tag:
 	mkdir -p /var/cache/mod
@@ -112,6 +111,7 @@ install: all
 # ---------------------------------------------------------------------------------------------------------------------
 
 -include $(OBJECTS_main:%.o=%.d)
--include $(OBJECTS_test:%.o=%.d)
+-include $(OBJECTS_test_fake:%.o=%.d)
+-include $(OBJECTS_test_real:%.o=%.d)
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -16,15 +16,42 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static void update_syscmd_size(char cmdbuf[0xff]);
-static void test_hmi_command();
+static void test_hmi_command(struct sp_port* hmi, struct sp_port* sys, const char* cmd, const char* resp);
 
 int main(int argc, char* argv[])
 {
-    struct sp_port* const serialport_sys = serial_open("sys", 0);
-    struct sp_port* const serialport_hmi = serial_open("hmi", 0);
+    const char* serialA;
+    const char* serialB;
+    int baudrate;
+
+    // real version
+    if (sp_get_lib_version_string() != NULL)
+    {
+        if (argc <= 3)
+        {
+            fprintf(stdout, "Usage: %s <serial-device-a> <serial-device-b> <speed>\n", argv[0]);
+            return EXIT_FAILURE;
+        }
+
+        // parse arguments
+        serialA = argv[1];
+        serialB = argv[2];
+        baudrate = atoi(argv[3]);
+    }
+    // fake version
+    else
+    {
+        serialA = "sys";
+        serialB = "hmi";
+        baudrate = 0;
+    }
+
+    struct sp_port* const serialport_sys = serial_open(serialA, baudrate);
+    struct sp_port* const serialport_hmi = serial_open(serialB, baudrate);
 
     if (serialport_sys == NULL || serialport_hmi == NULL)
         return 1;
@@ -376,9 +403,9 @@ int main(int argc, char* argv[])
 
     // --------------------------------------------------------------------------------------------
 
-    sp_close(serialport_sys);
-    sp_close(serialport_hmi);
-    return 0;
+    serial_close(serialport_sys);
+    serial_close(serialport_hmi);
+    return EXIT_SUCCESS;
 
     // unused
     (void)argc;

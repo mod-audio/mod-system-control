@@ -2,7 +2,7 @@
  * This file is part of mod-system-control.
  */
 
-#include "serial.h"
+#include "serial_io.h"
 
 #define _GNU_SOURCE
 #include <limits.h>

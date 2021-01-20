@@ -62,11 +62,14 @@ bool execute_and_get_output(char buf[0xff], const char* argv[])
 #endif
 
     int pipefd[2];
+    pid_t pid;
+    int state;
+    ssize_t r;
 
     if (pipe(pipefd) != 0)
         goto error;
 
-    const pid_t pid = vfork();
+    pid = vfork();
 
     // error
     if (pid == -1)
@@ -93,11 +96,10 @@ bool execute_and_get_output(char buf[0xff], const char* argv[])
     close(pipefd[1]);
 
     // wait for process to finish
-    int state;
     if (waitpid(pid, &state, 0x0) < 0)
         goto error;
 
-    const ssize_t r = read(pipefd[0], buf, 0xff-1);
+    r = read(pipefd[0], buf, 0xff-1);
 
     if (r <= 0 || r >= 0xff)
         goto error;
