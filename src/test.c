@@ -328,6 +328,10 @@ int main(int argc, char* argv[])
     update_syscmd_size(cmdbuf);
     test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
 
+    snprintf(cmdbuf, 0xff-1, CMD_SYS_AMIXER_SAVE);
+    snprintf(respbuf, 0xff-1, CMD_RESPONSE_NONE, 0);
+    test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);
+
     snprintf(cmdbuf, 0xff-1, CMD_SYS_BT_STATUS);
     snprintf(respbuf, 0xff-1, CMD_RESPONSE_STR, 0, "Unavailable||(none)");
     test_hmi_command(serialport_hmi, serialport_sys, cmdbuf, respbuf);

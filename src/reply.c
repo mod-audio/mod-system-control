@@ -79,6 +79,13 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
                              : execute_ignoring_output(serialport, argv);
     }
 
+    if (strncmp(msg, CMD_SYS_AMIXER_SAVE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* argv[] = { "mod-amixer", "save", NULL };
+
+        return execute_ignoring_output(serialport, argv);
+    }
+
     if (strncmp(msg, CMD_SYS_BT_STATUS, _CMD_SYS_LENGTH) == 0)
     {
         const char* argv[] = { "mod-bluetooth", "hmi", NULL };
