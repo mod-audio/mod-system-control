@@ -54,6 +54,7 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
         // io 0 = in, 1 = out
         io = *argvs++ == '0' ? "in" : "out";
         argvs++;
+
         // channel 1, 2 or 0 for both
         channel[0] = *argvs++;
         channel[1] = '\0';
@@ -70,7 +71,7 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
 
     if (strncmp(msg, CMD_SYS_HP_GAIN, _CMD_SYS_LENGTH) == 0)
     {
-        const char* const value = strlen(msg) > _CMD_SYS_LENGTH
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
                                 ? msg + SYS_CMD_ARG_START
                                 : NULL;
         const char* argv[] = { "mod-amixer", "hp", "xvol", value, NULL };
