@@ -84,8 +84,12 @@ all: $(TARGETS)
 mod-system-control: $(OBJECTS_main)
 	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) $(LINK_FLAGS_SP) $(LINK_FLAGS_SD) -lm -o $@
 
-test: $(OBJECTS_test)
-	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@
+test: $(OBJECTS_test) /var/cache/mod/tag
+	$(CC) $(filter %.o,$^) $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@
+
+/var/cache/mod/tag:
+	mkdir -p /var/cache/mod
+	echo "MDW01D01-00001" > $@
 
 build/test.c.o: src/test.c
 	-$(shell mkdir -p build)

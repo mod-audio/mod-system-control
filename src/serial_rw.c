@@ -4,21 +4,14 @@
 
 #include "serial_rw.h"
 
+#include "../mod-controller-proto/mod-protocol.h"
+
 #define _GNU_SOURCE
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// TODO put this in spec file
-#define MOD_SYSTEM_SERIAL_CMD_PREFIX "sys_"
-#define MOD_SYSTEM_SERIAL_CMD_SIZE  7 /* "cmd_xyz" */
-#define MOD_SYSTEM_SERIAL_DATA_SIZE 2 /* "ff" max */
-
-#define MOD_SYSTEM_SERIAL_CMD_VERSION MOD_SYSTEM_SERIAL_CMD_PREFIX "ver"
-#define MOD_SYSTEM_SERIAL_CMD_BT_INFO MOD_SYSTEM_SERIAL_CMD_PREFIX "bti"
-#define MOD_SYSTEM_SERIAL_CMD_BT_DISC MOD_SYSTEM_SERIAL_CMD_PREFIX "btd"
 
 sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport, char buf[0xff])
 {
@@ -28,10 +21,10 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
 
     // read command
     reading_offset = 0;
-    ret = sp_blocking_read(serialport, buf, MOD_SYSTEM_SERIAL_CMD_SIZE + 1, 500);
+    ret = sp_blocking_read(serialport, buf, _CMD_SYS_LENGTH + 1, 500);
     fprintf(stderr, "%s sp_blocking_read first read ret %d\n", __func__, ret);
 
-    if (ret < MOD_SYSTEM_SERIAL_CMD_SIZE + 1)
+    if (ret < _CMD_SYS_LENGTH + 1)
     {
         // there was nothing to read
         if (ret == 0)
@@ -41,18 +34,18 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
         if (ret > 0)
         {
             // check for all zeros, treat as if we read nothing
-            static const char allzeros[MOD_SYSTEM_SERIAL_CMD_SIZE + 1];
+            static const char allzeros[_CMD_SYS_LENGTH + 1];
 
             if (memcmp(buf, allzeros, ret) == 0)
                 return SP_READ_ERROR_NO_DATA;
 
             // if we read the beginning of a valid message, maybe we got cut off, let's check for that
-            if (strncmp(buf, MOD_SYSTEM_SERIAL_CMD_PREFIX, ret) == 0)
+            if (strncmp(buf, _CMD_SYS_PREFIX, ret) == 0)
             {
                 reading_offset += ret;
-                ret = sp_blocking_read(serialport, buf + reading_offset, MOD_SYSTEM_SERIAL_CMD_SIZE + 1 - reading_offset, 50);
+                ret = sp_blocking_read(serialport, buf + reading_offset, _CMD_SYS_LENGTH + 1 - reading_offset, 50);
 
-                if (ret + reading_offset == MOD_SYSTEM_SERIAL_CMD_SIZE + 1)
+                if (ret + reading_offset == _CMD_SYS_LENGTH + 1)
                     goto check_valid_cmd;
             }
         }
@@ -75,11 +68,11 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
 
 check_valid_cmd:
     // check if message is valid
-    if (strncmp(buf, MOD_SYSTEM_SERIAL_CMD_PREFIX, strlen(MOD_SYSTEM_SERIAL_CMD_PREFIX)) != 0)
+    if (strncmp(buf, _CMD_SYS_PREFIX, strlen(_CMD_SYS_PREFIX)) != 0)
     {
 #if 1
         // TESTING we should not print invalid chars
-        buf[MOD_SYSTEM_SERIAL_CMD_SIZE] = '\0';
+        buf[_CMD_SYS_LENGTH] = '\0';
         fprintf(stderr, "%s failed, invalid command '%s' received\n", __func__, buf);
 #else
         fprintf(stderr, "%s failed, invalid command received\n", __func__);
@@ -88,20 +81,20 @@ check_valid_cmd:
     }
 
     // message was read in full (only has command), we can stop here
-    if (buf[MOD_SYSTEM_SERIAL_CMD_SIZE] == '\0')
-        return MOD_SYSTEM_SERIAL_CMD_SIZE;
+    if (buf[_CMD_SYS_LENGTH] == '\0')
+        return _CMD_SYS_LENGTH;
 
-    if (buf[MOD_SYSTEM_SERIAL_CMD_SIZE] != ' ')
+    if (buf[_CMD_SYS_LENGTH] != ' ')
     {
         fprintf(stderr, "%s failed, command is missing space delimiter\n", __func__);
         return SP_READ_ERROR_INVALID_DATA;
     }
 
     // message has more data on it, let's fetch the data size
-    reading_offset += MOD_SYSTEM_SERIAL_CMD_SIZE + 1;
-    ret = sp_blocking_read(serialport, buf + reading_offset, MOD_SYSTEM_SERIAL_DATA_SIZE + 1, 500);
+    reading_offset += _CMD_SYS_LENGTH + 1;
+    ret = sp_blocking_read(serialport, buf + reading_offset, _CMD_SYS_DATA_LENGTH + 1, 500);
 
-    if (ret < MOD_SYSTEM_SERIAL_DATA_SIZE + 1)
+    if (ret < _CMD_SYS_DATA_LENGTH + 1)
     {
         fprintf(stderr, "%s failed, reading command data size timed out or error\n", __func__);
         return SP_READ_ERROR_INVALID_DATA;
@@ -110,10 +103,10 @@ check_valid_cmd:
     // check that data size is correct
     {
         long int data_size;
-        char data_size_str[MOD_SYSTEM_SERIAL_DATA_SIZE + 1];
-        for (uint i = 0; i <= MOD_SYSTEM_SERIAL_DATA_SIZE; ++i)
-            data_size_str[i] = buf[MOD_SYSTEM_SERIAL_CMD_SIZE + 1 + i];
-        data_size_str[MOD_SYSTEM_SERIAL_DATA_SIZE] = '\0';
+        char data_size_str[_CMD_SYS_DATA_LENGTH + 1];
+        for (uint i = 0; i <= _CMD_SYS_DATA_LENGTH; ++i)
+            data_size_str[i] = buf[_CMD_SYS_LENGTH + 1 + i];
+        data_size_str[_CMD_SYS_DATA_LENGTH] = '\0';
 
         data_size = strtol(data_size_str, NULL, 16);
         // LONG_MAX;
@@ -130,7 +123,7 @@ check_valid_cmd:
     }
 
     // read the full message now
-    reading_offset += MOD_SYSTEM_SERIAL_DATA_SIZE + 1;
+    reading_offset += _CMD_SYS_DATA_LENGTH + 1;
     ret = sp_blocking_read(serialport, buf + reading_offset, total_msg_size + 1U, 500);
 
     if (ret < (int)total_msg_size)
@@ -140,7 +133,7 @@ check_valid_cmd:
     }
 
     // add cmd and data size for the correct total size
-    total_msg_size += MOD_SYSTEM_SERIAL_CMD_SIZE + MOD_SYSTEM_SERIAL_DATA_SIZE + 2U;
+    total_msg_size += _CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2U;
 
     if (buf[total_msg_size] != '\0')
     {

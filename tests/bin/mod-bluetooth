@@ -1,0 +1,42 @@
+#!/bin/bash
+
+if [ "${1}"x == ""x ]; then
+    echo -e "Usage: mod-bluetooth <command>"
+    exit 1
+fi
+
+case "${1}" in
+    "discovery")
+        if [ ! -f /tmp/bluetooth-status ]; then
+            echo "bluetooth not available, cannot enable discovery"
+            exit 2
+        fi
+        if ( cat /tmp/bluetooth-status | grep -q "Unsupported" ); then
+            echo "bluetooth unsupported, cannot enable discovery"
+            exit 2
+        fi
+        echo "enabling discovery"
+    ;;
+
+    "hmi")
+        # needs to write status, name, address as fast as possible
+
+        # 1. status
+        STATUS="Unavailable"
+
+        # 2. name
+        NAME=""
+
+        # 3. address
+        ADDRESS="(none)"
+
+        echo "${STATUS}|${NAME}|${ADDRESS}"
+    ;;
+
+    *)
+        echo "${0}: Invalid command"
+        exit 1
+    ;;
+esac
+
+exit 0

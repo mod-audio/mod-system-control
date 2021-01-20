@@ -5,6 +5,7 @@
 #include "serial.h"
 #include "../loribu/src/loribu.h"
 
+#define _GNU_SOURCE
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -151,7 +152,7 @@ void serial_close(struct sp_port* serialport)
 enum sp_return sp_blocking_read(struct sp_port *port, void *buf, size_t count, unsigned int timeout_ms)
 {
     const uint32_t read = loribu_read(port->bread.loribu, buf, count);
-    printf("sp_blocking_read(%p, %s, %lu) -> %u\n", port, (const char*)buf, count, read);
+//     printf("sp_blocking_read(%p, %s, %lu) -> %u\n", port, (const char*)buf, count, read);
     return read == count ? (int)read
                          : (read == 0 ? SP_OK : SP_ERR_FAIL);
 }

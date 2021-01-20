@@ -3,47 +3,94 @@
  */
 
 #include "reply.h"
+#include "cli.h"
 #include "serial_rw.h"
+
+#include "../mod-controller-proto/mod-protocol.h"
 
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// TODO put this in spec file
-#define MOD_SYSTEM_SERIAL_CMD_PREFIX "sys_"
-#define MOD_SYSTEM_SERIAL_CMD_SIZE  7 /* "cmd_xyz" */
-#define MOD_SYSTEM_SERIAL_DATA_SIZE 2 /* "ff" max */
+// "sys_ver 07 version" -> "version"
+#define SYS_CMD_ARG_START (_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2)
 
-#define MOD_SYSTEM_SERIAL_CMD_VERSION MOD_SYSTEM_SERIAL_CMD_PREFIX "ver"
-#define MOD_SYSTEM_SERIAL_CMD_BT_INFO MOD_SYSTEM_SERIAL_CMD_PREFIX "bti"
-#define MOD_SYSTEM_SERIAL_CMD_BT_DISC MOD_SYSTEM_SERIAL_CMD_PREFIX "btd"
+static bool execute_and_write_output_resp(struct sp_port* serialport, const char* argv[])
+{
+//     char cmdbuf[0xff];
+
+//     if (execute_and_get_output(cmdbuf, argv))
+//         return write_or_close(serialport, "r 0");
+
+    return write_or_close(serialport, CMD_RESPONSE " -1");
+}
 
 bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
 {
-    // WIP
-    if (strncmp(msg, MOD_SYSTEM_SERIAL_CMD_VERSION, MOD_SYSTEM_SERIAL_CMD_SIZE) == 0)
+    if (strncmp(msg, CMD_SYS_GAIN, _CMD_SYS_LENGTH) == 0)
     {
-        fprintf(stdout, "%s: replying version\n", __func__);
+        const char* argvs = msg + SYS_CMD_ARG_START;
 
-        const char* const resp = "v1.10.1\n";
-        return write_or_close(serialport, resp);
+        // parsing arguments
+        const char *io, *value;
+        char channel[2];
+
+        // io 0 = in, 1 = out
+        io = *argvs++ == '0' ? "in" : "out";
+        argvs++;
+        // channel 1, 2 or 0 for both
+        channel[0] = *argvs++;
+        channel[1] = '\0';
+        argvs++;
+        // mixer value
+        value = argvs;
+
+        const char* argv[] = { "mod-amixer", io, channel, value, NULL };
+
+        return execute_and_write_output_resp(serialport, argv);
     }
 
-    if (strncmp(msg, MOD_SYSTEM_SERIAL_CMD_BT_INFO, MOD_SYSTEM_SERIAL_CMD_SIZE) == 0)
+    if (strncmp(msg, CMD_SYS_HP_GAIN, _CMD_SYS_LENGTH) == 0)
     {
-        fprintf(stdout, "%s: replying bluetooth info\n", __func__);
+        const char* argv[] = { "mod-amixer", "hp", "xvol", msg + SYS_CMD_ARG_START, NULL };
 
-        const char* const resp = "this,that,what\n";
-        return write_or_close(serialport, resp);
+        return execute_and_write_output_resp(serialport, argv);
     }
 
-    if (strncmp(msg, MOD_SYSTEM_SERIAL_CMD_BT_DISC, MOD_SYSTEM_SERIAL_CMD_SIZE) == 0)
+    if (strncmp(msg, CMD_SYS_BT_STATUS, _CMD_SYS_LENGTH) == 0)
     {
-        fprintf(stdout, "%s: replying bluetooth discovery\n", __func__);
+        const char* argv[] = { "mod-bluetooth", "hmi", NULL };
 
-        const char* const resp = "ok\n";
-        return write_or_close(serialport, resp);
+        return execute_and_write_output_resp(serialport, argv);
+    }
+
+    if (strncmp(msg, CMD_SYS_BT_DISCOVERY, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* argv[] = { "mod-bluetooth", "discovery", NULL };
+
+        return execute_and_write_output_resp(serialport, argv);
+    }
+
+    if (strncmp(msg, CMD_SYS_SYSTEMCTL, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* argv[] = { "systemctl", "is-active", msg + SYS_CMD_ARG_START, NULL };
+
+        return execute_and_write_output_resp(serialport, argv);
+    }
+
+    if (strncmp(msg, CMD_SYS_VERSION, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* argv[] = { "mod-version", msg + SYS_CMD_ARG_START, NULL };
+
+        return execute_and_write_output_resp(serialport, argv);
+    }
+
+    if (strncmp(msg, CMD_SYS_SERIAL, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* argv[] = { "cat", "/var/cache/mod/tag", NULL };
+
+        return execute_and_write_output_resp(serialport, argv);
     }
 
     fprintf(stderr, "%s: unknown message '%s'\n", __func__, msg);
