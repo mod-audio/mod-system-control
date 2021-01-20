@@ -72,8 +72,8 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Build rules
 
-SOURCES_main = main.c reply.c serial_io.c serial_rw.c
-SOURCES_test = test.c fakeserial.c reply.c serial_rw.c
+SOURCES_main = main.c cli.c reply.c serial_io.c serial_rw.c
+SOURCES_test = test.c cli.c fakeserial.c reply.c serial_rw.c
 OBJECTS_main = $(SOURCES_main:%.c=build/%.c.o)
 OBJECTS_test = $(SOURCES_test:%.c=build/%.c.o)
 
@@ -86,6 +86,9 @@ mod-system-control: $(OBJECTS_main)
 
 test: $(OBJECTS_test) /var/cache/mod/tag
 	$(CC) $(filter %.o,$^) $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@
+
+testrun: test
+	env PATH=$(CURDIR)/tests/bin:$(PATH) ./test
 
 /var/cache/mod/tag:
 	mkdir -p /var/cache/mod

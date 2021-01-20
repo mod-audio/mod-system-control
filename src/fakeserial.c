@@ -3,6 +3,7 @@
  */
 
 #include "serial.h"
+#include "reply.h"
 #include "../loribu/src/loribu.h"
 
 #define _GNU_SOURCE
@@ -30,7 +31,9 @@ struct sp_port_buffer {
 
 struct sp_port {
     struct sp_port_buffer bread;
+    /*
     struct sp_port_buffer bwrite;
+    */
     struct sp_port* otherside;
 };
 
@@ -95,13 +98,15 @@ struct sp_port* serial_open(const char* serial, int baudrate)
     }
 
     struct sp_port_buffer bread;
-    struct sp_port_buffer bwrite;
+    //struct sp_port_buffer bwrite;
 
     if (! sp_port_buffer_init(&bread))
         goto fail_bread_init;
 
+    /*
     if (! sp_port_buffer_init(&bwrite))
         goto fail_bwrite_init;
+    */
 
     struct sp_port* const serialport = (struct sp_port*)malloc(sizeof(struct sp_port));
 
@@ -109,7 +114,9 @@ struct sp_port* serial_open(const char* serial, int baudrate)
         goto fail_serialport_malloc;
 
     serialport->bread = bread;
+    /*
     serialport->bwrite = bwrite;
+    */
 
     if (strcmp(serial, "sys") == 0)
     {
@@ -131,20 +138,15 @@ struct sp_port* serial_open(const char* serial, int baudrate)
     return serialport;
 
 fail_serialport_malloc:
+    /*
     sp_port_buffer_cleanup(&bwrite);
 
 fail_bwrite_init:
+    */
     sp_port_buffer_cleanup(&bread);
 
 fail_bread_init:
     return NULL;
-}
-
-void serial_close(struct sp_port* serialport)
-{
-    sp_port_buffer_cleanup(&serialport->bwrite);
-    sp_port_buffer_cleanup(&serialport->bread);
-    free(serialport);
 }
 
 /* ----------------------------------------------------------------------------------------------------------------- */
@@ -152,16 +154,41 @@ void serial_close(struct sp_port* serialport)
 enum sp_return sp_blocking_read(struct sp_port *port, void *buf, size_t count, unsigned int timeout_ms)
 {
     const uint32_t read = loribu_read(port->bread.loribu, buf, count);
-//     printf("sp_blocking_read(%p, %s, %lu) -> %u\n", port, (const char*)buf, count, read);
-    return read == count ? (int)read
-                         : (read == 0 ? SP_OK : SP_ERR_FAIL);
+    if (read == count)
+    {
+        ((char*)buf)[count] = '\0';
+        printf("sp_blocking_read(%p, \"%s\", %lu) -> %u (ok)\n", port, (const char*)buf, count, read);
+    }
+    else
+        printf("sp_blocking_read(%p, %p, %lu) -> %u (fail)\n", port, buf, count, read);
+    return (int)read;
 }
 
 enum sp_return sp_nonblocking_write(struct sp_port *port, const void *buf, size_t count)
 {
-    const uint32_t written = loribu_write(port->bwrite.loribu, buf, count);
-    printf("sp_nonblocking_write(%p, %s, %lu) -> %u\n", port, (const char*)buf, count, written);
-    return written == count ? (int)written : SP_ERR_FAIL;
+    if (port->otherside == NULL)
+    {
+        printf("sp_nonblocking_write(%p, %s, %lu) fail, otherside missing\n", port, (const char*)buf, count);
+        return SP_ERR_FAIL;
+    }
+
+    const uint32_t written = loribu_write(port->otherside->bread.loribu, buf, count);
+    printf("sp_nonblocking_write(%p, \"%s\", %lu) -> %u\n", port, (const char*)buf, count, written);
+
+    if (written != count)
+        return SP_ERR_FAIL;
+
+    return (int)written;
+}
+
+enum sp_return sp_close(struct sp_port* serialport)
+{
+    /*
+    sp_port_buffer_cleanup(&serialport->bwrite);
+    */
+    sp_port_buffer_cleanup(&serialport->bread);
+    free(serialport);
+    return SP_OK;
 }
 
 /* ----------------------------------------------------------------------------------------------------------------- */

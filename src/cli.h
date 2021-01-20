@@ -2,6 +2,8 @@
  * This file is part of mod-system-control.
  */
 
+#pragma once
+
 #include <stdbool.h>
 
-bool execute_and_get_output(char buf[0xff], char* argv[]);
+bool execute_and_get_output(char buf[0xff], const char* argv[]);

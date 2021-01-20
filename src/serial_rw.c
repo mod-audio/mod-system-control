@@ -96,8 +96,9 @@ check_valid_cmd:
 
     if (ret < _CMD_SYS_DATA_LENGTH + 1)
     {
-        fprintf(stderr, "%s failed, reading command data size timed out or error\n", __func__);
-        return SP_READ_ERROR_INVALID_DATA;
+        fprintf(stderr, "%s failed, reading command data size timed out or error %i\n", __func__, ret);
+        return (ret > 0 && buf[reading_offset + ret - 1] == '\0') ? SP_READ_ERROR_NO_DATA
+                                                                  : SP_READ_ERROR_INVALID_DATA;
     }
 
     // check that data size is correct
@@ -115,7 +116,8 @@ check_valid_cmd:
         if (data_size <= 0 || data_size > 0xff - reading_offset - 1)
         {
             fprintf(stderr, "%s failed, incorrect command data size '%s'\n", __func__, data_size_str);
-            return SP_READ_ERROR_INVALID_DATA;
+            return buf[reading_offset + ret - 1] == '\0' ? SP_READ_ERROR_NO_DATA
+                                                         : SP_READ_ERROR_INVALID_DATA;
         }
 
         // NOTE does not include cmd and size prefix
@@ -129,7 +131,8 @@ check_valid_cmd:
     if (ret < (int)total_msg_size)
     {
         fprintf(stderr, "%s failed, reading full message data timed out or error\n", __func__);
-        return SP_READ_ERROR_INVALID_DATA;
+        return buf[reading_offset + ret - 1] == '\0' ? SP_READ_ERROR_NO_DATA
+                                                     : SP_READ_ERROR_INVALID_DATA;
     }
 
     // add cmd and data size for the correct total size
@@ -146,14 +149,83 @@ check_valid_cmd:
 
 sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport)
 {
-    // TODO
+    char c;
+    enum sp_return ret;
+
+    for (;;)
+    {
+        ret = sp_blocking_read(serialport, &c, 1, 500);
+        fprintf(stderr, "%s sp_blocking_read has %i\n", __func__, ret);
+
+        if (ret == 0)
+            return SP_READ_ERROR_NO_DATA;
+        if (ret != 1)
+            return SP_READ_ERROR_INVALID_DATA;
+        if (c == '\0')
+            return 0;
+    }
+}
+
+bool write_or_close(struct sp_port* serialport, const char* const msg)
+{
+    errno = 0;
+    if (sp_nonblocking_write(serialport, msg, strlen(msg)+1) == -SP_ERR_FAIL && errno == EIO)
+    {
+        sp_close(serialport);
+        return false;
+    }
+
     return true;
 }
 
-bool write_or_close(struct sp_port* serialport, const char* const resp)
+// NOTE: DO NOT USE, needed only for tests
+bool serial_read_response(struct sp_port* serialport, char buf[0xff])
 {
-    errno = 0;
-    if (sp_nonblocking_write(serialport, resp, strlen(resp)+1) == -SP_ERR_FAIL && errno == EIO)
+    unsigned int reading_offset;
+    enum sp_return ret;
+
+    // read first byte
+    reading_offset = 0;
+    ret = sp_blocking_read(serialport, buf, 1, 500);
+
+    if (ret != 1 || buf[0] != 'r')
         return false;
-    return true;
+
+    // read resp code
+    reading_offset += 1;
+    ret = sp_blocking_read(serialport, buf + reading_offset, 2, 500);
+
+    if (ret != 2 || buf[1] != ' ')
+        return false;
+
+    // if negative resp code, read one more byte and stop here
+    if (buf[2] == '-')
+    {
+        reading_offset += 2;
+        ret = sp_blocking_read(serialport, buf + reading_offset, 2, 500);
+
+        if (ret != 2 || buf[4] != '\0')
+            return false;
+
+        fprintf(stderr, "%s ok with err, full message is \"%s\"\n", __func__, buf);
+        return true;
+    }
+
+    // read everything byte by byte until zero
+    reading_offset += 2;
+    for (;;)
+    {
+        ret = sp_blocking_read(serialport, buf + reading_offset, 1, 500);
+
+        if (ret != 1)
+            return false;
+
+        if (buf[reading_offset] == '\0')
+        {
+            fprintf(stderr, "%s ok, full message is \"%s\"\n", __func__, buf);
+            return true;
+        }
+
+        reading_offset += 1;
+    }
 }

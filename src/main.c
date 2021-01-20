@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
     const char* serial;
     int baudrate;
     char buf[0xff];
-    uint8_t msg_size;
+    sp_read_error_status status;
 
     if (argc <= 2)
     {
@@ -65,8 +65,16 @@ int main(int argc, char* argv[])
 
     while (g_running)
     {
-        if ((msg_size = serial_read_msg_until_zero(serialport, buf)) <= 0)
+        switch (serial_read_msg_until_zero(serialport, buf))
+        {
+        case SP_READ_ERROR_NO_DATA:
             continue;
+        case SP_READ_ERROR_INVALID_DATA:
+            serial_read_ignore_until_zero(serialport);
+            continue;
+        case SP_READ_ERROR_IO:
+            break;
+        }
 
         if (! parse_and_reply_to_message(serialport, buf))
             break;

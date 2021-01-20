@@ -18,12 +18,19 @@
 
 static bool execute_and_write_output_resp(struct sp_port* serialport, const char* argv[])
 {
-//     char cmdbuf[0xff];
+    char cmdbuf[0xff + 4];
 
-//     if (execute_and_get_output(cmdbuf, argv))
-//         return write_or_close(serialport, "r 0");
+    if (execute_and_get_output(cmdbuf, argv))
+    {
+        memmove(cmdbuf+4, cmdbuf, strlen(cmdbuf)+1);
+        cmdbuf[0] = 'r';
+        cmdbuf[1] = ' ';
+        cmdbuf[2] = '0';
+        cmdbuf[3] = ' ';
+        return write_or_close(serialport, cmdbuf);
+    }
 
-    return write_or_close(serialport, CMD_RESPONSE " -1");
+    return write_or_close(serialport, "r -1");
 }
 
 bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
@@ -94,5 +101,5 @@ bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff])
     }
 
     fprintf(stderr, "%s: unknown message '%s'\n", __func__, msg);
-    return true;
+    return write_or_close(serialport, "r -1");
 }
