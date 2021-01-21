@@ -89,6 +89,9 @@ test-real: $(OBJECTS_test_real) /var/cache/mod/tag
 test-fake-run: test-fake
 	env PATH=$(CURDIR)/tests/bin:$(PATH) ./test-fake
 
+test-real-run: test-real
+	env PATH=$(CURDIR)/tests/bin:$(PATH) ./test-real /dev/ttyUSB0 /dev/ttyUSB1 115200
+
 /var/cache/mod/tag:
 	mkdir -p /var/cache/mod
 	echo "MDW01D01-00001" > $@

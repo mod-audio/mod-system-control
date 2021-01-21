@@ -13,6 +13,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+// in ms
+#define SP_BLOCKING_READ_TIMEOUT 5
+
+static inline int imax(const int a, const int b)
+{
+    return a > b ? a : b;
+}
+
 sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport, char buf[0xff])
 {
     unsigned int reading_offset;
@@ -21,10 +29,15 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
 
     // read command
     reading_offset = 0;
-    ret = sp_blocking_read(serialport, buf, _CMD_SYS_LENGTH + 1, 500);
+    ret = sp_blocking_read(serialport, buf, _CMD_SYS_LENGTH + 1, SP_BLOCKING_READ_TIMEOUT);
+
     /*
-    fprintf(stderr, "%s sp_blocking_read first read ret %d\n", __func__, ret);
+    fprintf(stderr, "%s sp_blocking_read first read ret %d |%c|%c|%c|%c|\n", __func__, ret, buf[0], buf[1], buf[2], buf[3]);
     */
+
+    // shift by 1 byte if message starts with a null byte
+    if (ret > 1 && buf[0] == '\0' && buf[1] != '\0')
+        memmove(buf, buf+1, --ret);
 
     if (ret < _CMD_SYS_LENGTH + 1)
     {
@@ -42,12 +55,14 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
                 return SP_READ_ERROR_NO_DATA;
 
             // if we read the beginning of a valid message, maybe we got cut off, let's check for that
-            if (strncmp(buf, _CMD_SYS_PREFIX, ret) == 0)
+            if (strncmp(buf, _CMD_SYS_PREFIX, strlen(_CMD_SYS_PREFIX)) == 0)
             {
-                reading_offset += ret;
-                ret = sp_blocking_read(serialport, buf + reading_offset, _CMD_SYS_LENGTH + 1 - reading_offset, 50);
+                const enum sp_return oldret = ret;
+                ret = sp_blocking_read(serialport,
+                                       buf + oldret, _CMD_SYS_LENGTH + 1 - oldret,
+                                       imax(SP_BLOCKING_READ_TIMEOUT/10, 1));
 
-                if (ret + reading_offset == _CMD_SYS_LENGTH + 1)
+                if (ret > 0 && ret + oldret == _CMD_SYS_LENGTH + 1)
                     goto check_valid_cmd;
             }
         }
@@ -94,7 +109,7 @@ check_valid_cmd:
 
     // message has more data on it, let's fetch the data size
     reading_offset += _CMD_SYS_LENGTH + 1;
-    ret = sp_blocking_read(serialport, buf + reading_offset, _CMD_SYS_DATA_LENGTH + 1, 500);
+    ret = sp_blocking_read(serialport, buf + reading_offset, _CMD_SYS_DATA_LENGTH + 1, SP_BLOCKING_READ_TIMEOUT);
 
     if (ret < _CMD_SYS_DATA_LENGTH + 1)
     {
@@ -128,13 +143,29 @@ check_valid_cmd:
 
     // read the full message now
     reading_offset += _CMD_SYS_DATA_LENGTH + 1;
-    ret = sp_blocking_read(serialport, buf + reading_offset, total_msg_size + 1U, 500);
+    ret = sp_blocking_read(serialport, buf + reading_offset, total_msg_size + 1U, SP_BLOCKING_READ_TIMEOUT);
 
     if (ret < (int)total_msg_size)
     {
-        fprintf(stderr, "%s failed, reading full message data timed out or error\n", __func__);
-        return buf[reading_offset + ret - 1] == '\0' ? SP_READ_ERROR_NO_DATA
-                                                     : SP_READ_ERROR_INVALID_DATA;
+        // if we read a few bytes maybe we got cancelled, try again one more time
+        enum sp_return ret2 = 0;
+        if (ret > 0)
+        {
+            reading_offset += ret;
+            ret2 = sp_blocking_read(serialport,
+                                    buf + reading_offset, total_msg_size + 1U,
+                                    imax(SP_BLOCKING_READ_TIMEOUT/10, 1));
+
+            if (ret2 < 0)
+                ret2 = 0;
+        }
+
+        if (ret + ret2 < (int)total_msg_size)
+        {
+            fprintf(stderr, "%s failed, reading full message data timed out or error\n", __func__);
+            return buf[reading_offset + ret - 1] == '\0' ? SP_READ_ERROR_NO_DATA
+                                                         : SP_READ_ERROR_INVALID_DATA;
+        }
     }
 
     // add cmd and data size for the correct total size
@@ -154,9 +185,11 @@ sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport)
     char c;
     enum sp_return ret;
 
+    const int timeout = imax(SP_BLOCKING_READ_TIMEOUT/10,1);
+
     for (;;)
     {
-        ret = sp_blocking_read(serialport, &c, 1, 500);
+        ret = sp_blocking_read(serialport, &c, 1, timeout);
 
         if (ret == 0)
             return SP_READ_ERROR_NO_DATA;
@@ -187,14 +220,14 @@ bool serial_read_response(struct sp_port* serialport, char buf[0xff])
 
     // read first byte
     reading_offset = 0;
-    ret = sp_blocking_read(serialport, buf, 1, 500);
+    ret = sp_blocking_read(serialport, buf, 1, SP_BLOCKING_READ_TIMEOUT);
 
     if (ret != 1 || buf[0] != 'r')
         return false;
 
     // read resp code
     reading_offset += 1;
-    ret = sp_blocking_read(serialport, buf + reading_offset, 2, 500);
+    ret = sp_blocking_read(serialport, buf + reading_offset, 2, SP_BLOCKING_READ_TIMEOUT);
 
     if (ret != 2 || buf[1] != ' ')
         return false;
@@ -203,7 +236,7 @@ bool serial_read_response(struct sp_port* serialport, char buf[0xff])
     if (buf[2] == '-')
     {
         reading_offset += 2;
-        ret = sp_blocking_read(serialport, buf + reading_offset, 2, 500);
+        ret = sp_blocking_read(serialport, buf + reading_offset, 2, SP_BLOCKING_READ_TIMEOUT);
 
         if (ret != 2 || buf[4] != '\0')
             return false;
@@ -218,7 +251,7 @@ bool serial_read_response(struct sp_port* serialport, char buf[0xff])
     reading_offset += 2;
     for (;;)
     {
-        ret = sp_blocking_read(serialport, buf + reading_offset, 1, 500);
+        ret = sp_blocking_read(serialport, buf + reading_offset, 1, SP_BLOCKING_READ_TIMEOUT);
 
         if (ret != 1)
             return false;
