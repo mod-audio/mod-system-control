@@ -73,7 +73,7 @@ OBJECTS_main      = $(SOURCES_main:%.c=build/%.c.o)
 OBJECTS_test_fake = $(SOURCES_test_fake:%.c=build/%.c.o)
 OBJECTS_test_real = $(SOURCES_test_real:%.c=build/%.c.o)
 
-TARGETS = mod-system-control test-fake test-real
+TARGETS = mod-system-control
 
 all: $(TARGETS)
 
