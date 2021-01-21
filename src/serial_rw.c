@@ -145,15 +145,14 @@ check_valid_cmd:
     reading_offset += _CMD_SYS_DATA_LENGTH + 1;
     ret = sp_blocking_read(serialport, buf + reading_offset, total_msg_size + 1U, SP_BLOCKING_READ_TIMEOUT);
 
-    if (ret < (int)total_msg_size)
+    if (ret < (int)total_msg_size + 1)
     {
         // if we read a few bytes maybe we got cancelled, try again one more time
         enum sp_return ret2 = 0;
         if (ret > 0)
         {
-            reading_offset += ret;
             ret2 = sp_blocking_read(serialport,
-                                    buf + reading_offset, total_msg_size + 1U,
+                                    buf + reading_offset + ret, total_msg_size + 1U - ret,
                                     imax(SP_BLOCKING_READ_TIMEOUT/10, 1));
 
             if (ret2 < 0)
