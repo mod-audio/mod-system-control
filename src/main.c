@@ -48,6 +48,10 @@ int main(int argc, char* argv[])
     if (serialport == NULL)
         return EXIT_FAILURE;
 
+    // check if debugging
+    const char* const mod_log = getenv("MOD_LOG");
+    const bool debug = atoi(mod_log != NULL ? mod_log : "0");
+
     // setup quit signal
     struct sigaction sig;
     memset(&sig, 0, sizeof(sig));
@@ -59,7 +63,8 @@ int main(int argc, char* argv[])
     sigaction(SIGINT, &sig, NULL);
 
     // notify systemd we are running
-    fprintf(stdout, "%s now running with '%s' and %d as parameters\n", argv[0], serial, baudrate);
+    fprintf(stdout, "%s now running with '%s', %d baudrate and logging %s\n",
+            argv[0], serial, baudrate, debug ? "enabled" : "disabled");
     sd_notify(0, "READY=1");
 
     while (g_running)
@@ -73,6 +78,12 @@ int main(int argc, char* argv[])
             continue;
         case SP_READ_ERROR_IO:
             break;
+        }
+
+        if (debug)
+        {
+            fprintf(stdout, "mod-system-control received '%s'\n", buf);
+            fflush(stdout);
         }
 
         if (! parse_and_reply_to_message(serialport, buf))
