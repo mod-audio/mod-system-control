@@ -12,7 +12,10 @@
 #include <string.h>
 
 #include <signal.h>
+
+#ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
+#endif
 
 static volatile bool g_running = true;
 
@@ -62,10 +65,12 @@ int main(int argc, char* argv[])
     sigaction(SIGTERM, &sig, NULL);
     sigaction(SIGINT, &sig, NULL);
 
-    // notify systemd we are running
+    // notify we are running
     fprintf(stdout, "%s now running with '%s', %d baudrate and logging %s\n",
             argv[0], serial, baudrate, debug ? "enabled" : "disabled");
+#ifdef HAVE_SYSTEMD
     sd_notify(0, "READY=1");
+#endif
 
     while (g_running)
     {
@@ -90,8 +95,10 @@ int main(int argc, char* argv[])
             break;
     }
 
-    // notify systemd we are stopping
+    // notify we are stopping
+#ifdef HAVE_SYSTEMD
     sd_notify(0, "STOPPING=1");
+#endif
     fprintf(stdout, "%s stopping...\n", argv[0]);
 
     // close serial port
