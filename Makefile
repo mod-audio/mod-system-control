@@ -43,7 +43,7 @@ BASE_FLAGS     += $(shell pkg-config --cflags libserialport)
 LINK_FLAGS_SP   = $(shell pkg-config --libs libserialport)
 
 # for systemd notify
-ifeq ($(shell $(PKG_CONFIG) --exists libsystemd && echo true),true)
+ifeq ($(shell pkg-config --exists libsystemd && echo true),true)
 BASE_FLAGS     += -DHAVE_SYSTEMD
 BASE_FLAGS     += $(shell pkg-config --cflags libsystemd)
 LINK_FLAGS_SD   = $(shell pkg-config --libs libsystemd)

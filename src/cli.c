@@ -15,16 +15,15 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-// #define DEBUG_PRINT_EXEC_ARGV
-
-bool execute(const char* argv[])
+bool execute(const char* argv[], const bool debug)
 {
-#ifdef DEBUG_PRINT_EXEC_ARGV
-    printf("%s(%p) => \"%s", __func__, argv, argv[0]);
-    for (int i=1; argv[i] != NULL; ++i)
-        printf(" %s", argv[i]);
-    printf("\"\n");
-#endif
+    if (debug)
+    {
+        printf("%s(%p) => \"%s", __func__, argv, argv[0]);
+        for (int i=1; argv[i] != NULL; ++i)
+            printf(" %s", argv[i]);
+        printf("\"\n");
+    }
 
     const pid_t pid = vfork();
 
@@ -52,14 +51,15 @@ bool execute(const char* argv[])
     return true;
 }
 
-bool execute_and_get_output(char buf[0xff], const char* argv[])
+bool execute_and_get_output(char buf[0xff], const char* argv[], const bool debug)
 {
-#ifdef DEBUG_PRINT_EXEC_ARGV
-    printf("%s(%p) => \"%s", __func__, argv, argv[0]);
-    for (int i=1; argv[i] != NULL; ++i)
-        printf(" %s", argv[i]);
-    printf("\"\n");
-#endif
+    if (debug)
+    {
+        printf("%s(%p) => \"%s", __func__, argv, argv[0]);
+        for (int i=1; argv[i] != NULL; ++i)
+            printf(" %s", argv[i]);
+        printf("\"\n");
+    }
 
     int pipefd[2];
     pid_t pid;
@@ -104,9 +104,8 @@ bool execute_and_get_output(char buf[0xff], const char* argv[])
     if (r <= 0 || r >= 0xff)
         goto error;
 
-#ifdef DEBUG_PRINT_EXEC_ARGV
-    printf("%s(%p) got %li bytes\n", __func__, argv, r);
-#endif
+    if (debug)
+        printf("%s(%p) got %li bytes\n", __func__, argv, r);
 
     if (buf[r-1] == '\n')
         buf[r-1] = '\0';

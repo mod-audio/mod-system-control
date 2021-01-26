@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
             fflush(stdout);
         }
 
-        if (! parse_and_reply_to_message(serialport, buf))
+        if (! parse_and_reply_to_message(serialport, buf, debug))
             break;
     }
 

@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: reply to sys_ver\n");
-    assert(parse_and_reply_to_message(serialport_sys, buf));
+    assert(parse_and_reply_to_message(serialport_sys, buf, false));
     printf("\n");
 
     printf("TEST: read sys_ver reply\n");
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: reply to unsupported command\n");
-    assert(parse_and_reply_to_message(serialport_sys, buf));
+    assert(parse_and_reply_to_message(serialport_sys, buf, false));
     printf("\n");
 
     printf("TEST: read unsupported command reply\n");
@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: reply to valid command but with corrupt data\n");
-    assert(parse_and_reply_to_message(serialport_sys, buf));
+    assert(parse_and_reply_to_message(serialport_sys, buf, false));
     printf("\n");
 
     printf("TEST: read valid command but with corrupt data reply\n");
@@ -441,7 +441,7 @@ static void test_hmi_command(struct sp_port* const serialport_hmi,
     printf("\n");
 
     printf("TEST: reply to '%s'\n", cmd);
-    assert(parse_and_reply_to_message(serialport_sys, buf));
+    assert(parse_and_reply_to_message(serialport_sys, buf, false));
     printf("\n");
 
     printf("TEST: read '%s' reply\n", cmd);

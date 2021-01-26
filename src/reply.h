@@ -10,4 +10,4 @@
 
 // calls write_or_close as final step
 // if this function returns false, serial is no longer valid
-bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff]);
+bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff], bool debug);
