@@ -19,7 +19,7 @@ typedef enum sp_read_error_status {
     SP_READ_ERROR_IO = -3,
 } sp_read_error_status;
 
-sp_read_error_status serial_read_msg_until_zero(struct sp_port* serialport, char buf[0xff]);
+sp_read_error_status serial_read_msg_until_zero(struct sp_port* serialport, char buf[0xff], bool debug);
 
 // returns 0 if ok, otherwise an error
 sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport);

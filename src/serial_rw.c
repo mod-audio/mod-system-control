@@ -21,7 +21,7 @@ static inline int imax(const int a, const int b)
     return a > b ? a : b;
 }
 
-sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport, char buf[0xff])
+sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport, char buf[0xff], const bool debug)
 {
     unsigned int reading_offset;
     unsigned int total_msg_size;
@@ -67,9 +67,7 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
             }
         }
 
-#if 0
-        // TESTING we should not print invalid chars
-        if (ret > 0)
+        if (debug && ret > 0)
         {
             char buf2[0xff];
             memcpy(buf2, buf, ret);
@@ -77,9 +75,9 @@ sp_read_error_status serial_read_msg_until_zero(struct sp_port* const serialport
             fprintf(stderr, "%s failed, reading command timed out or error, ret %d, value '%s'\n", __func__, ret, buf2);
         }
         else
-#endif
+        {
             fprintf(stderr, "%s failed, reading command timed out or error, ret %d\n", __func__, ret);
-
+        }
         return SP_READ_ERROR_INVALID_DATA;
     }
 
@@ -87,13 +85,15 @@ check_valid_cmd:
     // check if message is valid
     if (strncmp(buf, _CMD_SYS_PREFIX, strlen(_CMD_SYS_PREFIX)) != 0)
     {
-#if 0
-        // TESTING we should not print invalid chars
-        buf[_CMD_SYS_LENGTH] = '\0';
-        fprintf(stderr, "%s failed, invalid command '%s' received\n", __func__, buf);
-#else
-        fprintf(stderr, "%s failed, invalid command received\n", __func__);
-#endif
+        if (debug)
+        {
+            buf[_CMD_SYS_LENGTH] = '\0';
+            fprintf(stderr, "%s failed, invalid command '%s' received\n", __func__, buf);
+        }
+        else
+        {
+            fprintf(stderr, "%s failed, invalid command received\n", __func__);
+        }
         return SP_READ_ERROR_INVALID_DATA;
     }
 
@@ -127,8 +127,6 @@ check_valid_cmd:
         data_size_str[_CMD_SYS_DATA_LENGTH] = '\0';
 
         data_size = strtol(data_size_str, NULL, 16);
-        // LONG_MAX;
-        // LONG_MIN;
 
         if (data_size <= 0 || data_size > 0xff - reading_offset - 1)
         {

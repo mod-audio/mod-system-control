@@ -63,12 +63,12 @@ int main(int argc, char* argv[])
     // initial read must return no data
 
     printf("TEST: initial read must return no data (sys)\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
     printf("TEST: initial read must return no data (hmi)\n");
-    ret = serial_read_msg_until_zero(serialport_hmi, buf);
+    ret = serial_read_msg_until_zero(serialport_hmi, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read sys_ver from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == strlen("sys_ver 07 version"));
     assert(strcmp(buf, "sys_ver 07 version") == 0);
     printf("\n");
@@ -98,12 +98,12 @@ int main(int argc, char* argv[])
     // there should be nothing more to read
 
     printf("TEST: there should be nothing more to read (sys)\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
     printf("TEST: there should be nothing more to read (hmi)\n");
-    ret = serial_read_msg_until_zero(serialport_hmi, buf);
+    ret = serial_read_msg_until_zero(serialport_hmi, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read unsupported command from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == strlen("sys_fuk"));
     assert(strcmp(buf, "sys_fuk") == 0);
     printf("\n");
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read valid command but with wrong data length (part 1) from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
@@ -149,7 +149,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read valid command but with wrong data length (part 2) from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read valid command but with too small data size from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_INVALID_DATA);
     printf("\n");
 
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read valid command but with too big data size from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read valid command but with corrupt data from sys side\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == strlen("sys_ver 04 :`[!"));
     assert(strcmp(buf, "sys_ver 04 :`[!") == 0);
     printf("\n");
@@ -211,7 +211,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     printf("TEST: read gibberish command\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_INVALID_DATA);
     printf("\n");
 
@@ -235,7 +235,7 @@ int main(int argc, char* argv[])
     for (;;)
     {
         printf("TEST: read gibberish from sys side\n");
-        ret = serial_read_msg_until_zero(serialport_sys, buf);
+        ret = serial_read_msg_until_zero(serialport_sys, buf, false);
         assert(ret == SP_READ_ERROR_INVALID_DATA || ret == SP_READ_ERROR_NO_DATA);
         printf("\n");
 
@@ -251,12 +251,12 @@ int main(int argc, char* argv[])
     // there should be nothing more to read
 
     printf("TEST: there should be nothing more to read (sys)\n");
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
     printf("TEST: there should be nothing more to read (hmi)\n");
-    ret = serial_read_msg_until_zero(serialport_hmi, buf);
+    ret = serial_read_msg_until_zero(serialport_hmi, buf, false);
     assert(ret == SP_READ_ERROR_NO_DATA);
     printf("\n");
 
@@ -435,7 +435,7 @@ static void test_hmi_command(struct sp_port* const serialport_hmi,
     printf("\n");
 
     printf("TEST: read '%s' from sys side\n", cmd);
-    ret = serial_read_msg_until_zero(serialport_sys, buf);
+    ret = serial_read_msg_until_zero(serialport_sys, buf, false);
     assert(ret == (int)strlen(cmd));
     assert(strcmp(buf, cmd) == 0);
     printf("\n");

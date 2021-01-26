@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 
     while (g_running)
     {
-        switch (serial_read_msg_until_zero(serialport, buf))
+        switch (serial_read_msg_until_zero(serialport, buf, debug))
         {
         case SP_READ_ERROR_NO_DATA:
             continue;
