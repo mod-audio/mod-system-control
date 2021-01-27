@@ -329,6 +329,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
                 break;
             }
 
+            printf("%s: usb mode set to %c, sending 'r 0'\n", __func__, mode);
             return write_or_close(serialport, "r 0");
         }
         // reading current mode
@@ -348,6 +349,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
                 'r', ' ', '0', ' ', mode, '\0'
             };
 
+            printf("%s: usb mode request, sending '%s'\n", __func__, respbuf);
             return write_or_close(serialport, respbuf);
         }
     }
