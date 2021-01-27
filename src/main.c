@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
     sigaction(SIGINT, &sig, NULL);
 
     // create thread for postponed messages
-    create_postponed_messages_thread(serialport, debug);
+    create_postponed_messages_thread(debug);
 
     // notify we are running
     fprintf(stdout, "%s now running with '%s', %d baudrate and logging %s\n",

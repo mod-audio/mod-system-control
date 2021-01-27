@@ -24,15 +24,15 @@ static bool execute_ignoring_output(struct sp_port* const serialport, const char
     if (execute(argv, debug))
     {
         if (debug)
-            printf("execute(%p) completed successly\n", argv);
+            printf("%s(%p) completed successly\n", __func__, argv);
 
-        return write_or_close(serialport, "r 0");
+        return serialport != NULL ? write_or_close(serialport, "r 0") : true;
     }
 
     if (debug)
-        printf("execute(%p) failed\n", argv);
+        printf("%s(%p) failed\n", __func__, argv);
 
-    return write_or_close(serialport, "r -1");
+    return serialport != NULL ? write_or_close(serialport, "r -1") : false;
 }
 
 static bool execute_and_write_output_resp(struct sp_port* const serialport, const char* argv[], const bool debug)
@@ -48,13 +48,37 @@ static bool execute_and_write_output_resp(struct sp_port* const serialport, cons
         cmdbuf[3] = ' ';
 
         if (debug)
-            printf("execute_and_write_output_resp(%p) completed successly, responding with '%s'\n", argv, cmdbuf);
+            printf("%s(%p) completed successly, responding with '%s'\n", __func__, argv, cmdbuf);
 
         return write_or_close(serialport, cmdbuf);
     }
 
     if (debug)
-        printf("execute_and_write_output_resp(%p) failed\n", argv);
+        printf("%s(%p) failed\n", __func__, argv);
+
+    return write_or_close(serialport, "r -1");
+}
+
+static bool read_file_and_write_contents_resp(struct sp_port* const serialport, const char* filename, const bool debug)
+{
+    char cmdbuf[0xff + 4];
+
+    if (read_file(cmdbuf, filename, debug))
+    {
+        memmove(cmdbuf+4, cmdbuf, strlen(cmdbuf)+1);
+        cmdbuf[0] = 'r';
+        cmdbuf[1] = ' ';
+        cmdbuf[2] = '0';
+        cmdbuf[3] = ' ';
+
+        if (debug)
+            printf("%s(%p) completed successly, responding with '%s'\n", __func__, filename, cmdbuf);
+
+        return write_or_close(serialport, cmdbuf);
+    }
+
+    if (debug)
+        printf("%s(%p) failed\n", __func__, filename);
 
     return write_or_close(serialport, "r -1");
 }
@@ -76,14 +100,14 @@ static pthread_t last_amixer_thread;
 static volatile bool last_amixer_thread_running;
 static bool s_debug;
 
-static void handle_postponed_message(struct sp_port* const serialport, const amixer_msg* const msg, const bool debug)
+static void handle_postponed_message(const amixer_msg* const msg, const bool debug)
 {
     // headphone mode
     if (msg->channel == 'h')
     {
         const char* argv[] = { "mod-amixer", "hp", "xvol", msg->value, NULL };
 
-        execute_ignoring_output(serialport, argv, debug);
+        execute_ignoring_output(NULL, argv, debug);
     }
     // gain mode
     else
@@ -92,13 +116,12 @@ static void handle_postponed_message(struct sp_port* const serialport, const ami
         const char channelstr[2] = { msg->channel, '\0' };
         const char* argv[] = { "mod-amixer", io, channelstr, "xvol", msg->value, NULL };
 
-        execute_ignoring_output(serialport, argv, debug);
+        execute_ignoring_output(NULL, argv, debug);
     }
 }
 
 static void* postponed_messages_thread_run(void* const arg)
 {
-    struct sp_port* const serialport = (struct sp_port*)arg;
     struct amixer_msg local_amixer_msg;
 
     while (last_amixer_thread_running)
@@ -116,21 +139,24 @@ static void* postponed_messages_thread_run(void* const arg)
         if (local_amixer_msg.valid)
         {
             local_amixer_msg.valid = false;
-            handle_postponed_message(serialport, &local_amixer_msg, s_debug);
+            handle_postponed_message(&local_amixer_msg, s_debug);
         }
 
         sem_wait(&last_amixer_semaphore);
     }
 
     return NULL;
+
+    // unused
+    (void)arg;
 }
 
-void create_postponed_messages_thread(struct sp_port* serialport, const bool debug)
+void create_postponed_messages_thread(const bool debug)
 {
     s_debug = debug;
     last_amixer_thread_running = true;
     sem_init(&last_amixer_semaphore, 0, 0);
-    pthread_create(&last_amixer_thread, NULL, postponed_messages_thread_run, serialport);
+    pthread_create(&last_amixer_thread, NULL, postponed_messages_thread_run, NULL);
 }
 
 void destroy_postponded_messages_thread(void)
@@ -172,7 +198,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
                                           last_amixer_msg.channel != channel ||
                                           strcmp(last_amixer_msg.control, "xvol") != 0))
             {
-                handle_postponed_message(serialport, &last_amixer_msg, debug);
+                handle_postponed_message(&last_amixer_msg, debug);
             }
 
             // cache request for later handling
@@ -211,7 +237,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
             if (last_amixer_msg.valid && (last_amixer_msg.channel != 'h' ||
                                           strcmp(last_amixer_msg.control, "xvol") != 0))
             {
-                handle_postponed_message(serialport, &last_amixer_msg, debug);
+                handle_postponed_message(&last_amixer_msg, debug);
             }
 
             // cache request for later handling
@@ -273,9 +299,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
 
     if (strncmp(msg, CMD_SYS_SERIAL, _CMD_SYS_LENGTH) == 0)
     {
-        const char* argv[] = { "cat", "/var/cache/mod/tag", NULL };
-
-        return execute_and_write_output_resp(serialport, argv, debug);
+        return read_file_and_write_contents_resp(serialport, "/var/cache/mod/tag", debug);
     }
 
     fprintf(stderr, "%s: unknown message '%s'\n", __func__, msg);
