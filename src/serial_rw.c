@@ -113,7 +113,16 @@ check_valid_cmd:
 
     if (ret < _CMD_SYS_DATA_LENGTH + 1)
     {
-        fprintf(stderr, "%s failed, reading command data size timed out or error %i\n", __func__, ret);
+        if (debug)
+        {
+            buf[_CMD_SYS_LENGTH + 1 + (ret > 0 ? ret : 0)] = '\0';
+            fprintf(stderr, "%s failed, reading command data size timed out or error %i, read msg so far was '%s'\n",
+                    __func__, ret, buf);
+        }
+        else
+        {
+            fprintf(stderr, "%s failed, reading command data size timed out or error %i\n", __func__, ret);
+        }
         return (ret > 0 && buf[reading_offset + ret - 1] == '\0') ? SP_READ_ERROR_NO_DATA
                                                                   : SP_READ_ERROR_INVALID_DATA;
     }
