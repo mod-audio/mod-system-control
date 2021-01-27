@@ -51,6 +51,9 @@ int main(int argc, char* argv[])
     if (serialport == NULL)
         return EXIT_FAILURE;
 
+    // flush buffers
+    sp_flush(serialport, SP_BUF_BOTH);
+
     // check if debugging
     const char* const mod_log = getenv("MOD_LOG");
     const bool debug = atoi(mod_log != NULL ? mod_log : "0");
