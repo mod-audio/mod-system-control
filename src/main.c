@@ -65,6 +65,9 @@ int main(int argc, char* argv[])
     sigaction(SIGTERM, &sig, NULL);
     sigaction(SIGINT, &sig, NULL);
 
+    // create thread for postponed messages
+    create_postponed_messages_thread(serialport, debug);
+
     // notify we are running
     fprintf(stdout, "%s now running with '%s', %d baudrate and logging %s\n",
             argv[0], serial, baudrate, debug ? "enabled" : "disabled");
@@ -100,6 +103,9 @@ int main(int argc, char* argv[])
     sd_notify(0, "STOPPING=1");
 #endif
     fprintf(stdout, "%s stopping...\n", argv[0]);
+
+    // close postponed messages thread
+    destroy_postponded_messages_thread();
 
     // close serial port
     serial_close(serialport);
