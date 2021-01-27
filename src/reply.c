@@ -302,6 +302,69 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
         return read_file_and_write_contents_resp(serialport, "/var/cache/mod/tag", debug);
     }
 
+    if (strncmp(msg, CMD_SYS_USB_MODE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        // changing to new mode
+        if (value != NULL)
+        {
+            const char mode = *value;
+
+            switch (mode)
+            {
+            case '0':
+                delete_file("/data/enable-usb-multi-gadget", debug);
+                delete_file("/data/enable-usb-windows-compat", debug);
+                break;
+            case '1':
+                create_file("/data/enable-usb-multi-gadget", debug);
+                delete_file("/data/enable-usb-windows-compat", debug);
+                break;
+            case '2':
+                create_file("/data/enable-usb-multi-gadget", debug);
+                create_file("/data/enable-usb-windows-compat", debug);
+                break;
+            }
+
+            return write_or_close(serialport, "r 0");
+        }
+        // reading current mode
+        else
+        {
+            char mode = '0';
+
+            if (access("/data/enable-usb-multi-gadget", F_OK) == 0)
+            {
+                if (access("/data/enable-usb-windows-compat", F_OK) == 0)
+                    mode = '2';
+                else
+                    mode = '1';
+            }
+
+            char respbuf[6] = {
+                'r', ' ', '0', ' ', mode, '\0'
+            };
+
+            return write_or_close(serialport, respbuf);
+        }
+    }
+
+    if (strncmp(msg, CMD_SYS_REBOOT, _CMD_SYS_LENGTH) == 0)
+    {
+        // HMI is useless after this point, so print resp asap and move on with the reboot
+        write_or_close(serialport, "r 0");
+
+        const char* argv_hmi_reset[] = { "hmi-reset", NULL };
+        const char* argv_reboot[] = { "reboot", NULL };
+
+        execute(argv_hmi_reset, debug);
+        execute(argv_reboot, debug);
+        return true;
+    }
+
     fprintf(stderr, "%s: unknown message '%s'\n", __func__, msg);
     return write_or_close(serialport, "r -1");
 }
