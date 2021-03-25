@@ -69,7 +69,7 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Build rules
 
-SOURCES_main      = main.c cli.c reply.c serial_io.c serial_rw.c
+SOURCES_main      = main.c cli.c reply.c serial_io.c serial_rw.c sys_host.c sys_mixer.c
 SOURCES_test_fake = test.c cli.c fakeserial.c reply.c serial_rw.c
 SOURCES_test_real = test.c cli.c serial_io.c reply.c serial_rw.c
 OBJECTS_main      = $(SOURCES_main:%.c=build/%.c.o)
@@ -81,7 +81,7 @@ TARGETS = mod-system-control
 all: $(TARGETS)
 
 mod-system-control: $(OBJECTS_main)
-	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) $(LINK_FLAGS_SP) $(LINK_FLAGS_SD) -lm -o $@
+	$(CC) $^ $(BUILD_C_FLAGS) $(LINK_FLAGS) $(LINK_FLAGS_SP) $(LINK_FLAGS_SD) -lm -lrt -o $@
 
 test-fake: $(OBJECTS_test_fake) /var/cache/mod/tag
 	$(CC) $(filter %.o,$^) $(BUILD_C_FLAGS) $(LINK_FLAGS) -lm -o $@

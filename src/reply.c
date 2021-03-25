@@ -5,6 +5,8 @@
 #include "reply.h"
 #include "cli.h"
 #include "serial_rw.h"
+#include "sys_host.h"
+#include "sys_mixer.h"
 
 #include "../mod-controller-proto/mod-protocol.h"
 
@@ -12,14 +14,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <semaphore.h>
 #include <unistd.h>
 
 // "sys_ver 07 version" -> "version"
 #define SYS_CMD_ARG_START (_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2)
 
-static bool execute_ignoring_output(struct sp_port* const serialport, const char* argv[], const bool debug)
+/*static*/ bool execute_ignoring_output(struct sp_port* const serialport, const char* argv[], const bool debug)
 {
     if (execute(argv, debug))
     {
@@ -83,88 +83,16 @@ static bool read_file_and_write_contents_resp(struct sp_port* const serialport, 
     return write_or_close(serialport, "r -1");
 }
 
-/* TODO this could likely go into its own separate file
- * something for later, when we add Duo/DuoX support and the code becomes more complex
- */
-typedef struct amixer_msg {
-    bool valid;
-    bool input;
-    char channel;
-    char control[9]; /* biggest possible is "exppedal" */
-    char value[8];
-} amixer_msg;
-static struct amixer_msg last_amixer_msg;
-static pthread_mutex_t last_amixer_mutex = PTHREAD_MUTEX_INITIALIZER;
-static sem_t last_amixer_semaphore;
-static pthread_t last_amixer_thread;
-static volatile bool last_amixer_thread_running;
-static bool s_debug;
-
-static void handle_postponed_message(const amixer_msg* const msg, const bool debug)
-{
-    // headphone mode
-    if (msg->channel == 'h')
-    {
-        const char* argv[] = { "mod-amixer", "hp", "xvol", msg->value, NULL };
-
-        execute_ignoring_output(NULL, argv, debug);
-    }
-    // gain mode
-    else
-    {
-        const char* const io = msg->input ? "in" : "out";
-        const char channelstr[2] = { msg->channel, '\0' };
-        const char* argv[] = { "mod-amixer", io, channelstr, "xvol", msg->value, NULL };
-
-        execute_ignoring_output(NULL, argv, debug);
-    }
-}
-
-static void* postponed_messages_thread_run(void* const arg)
-{
-    struct amixer_msg local_amixer_msg;
-
-    while (last_amixer_thread_running)
-    {
-        pthread_mutex_lock(&last_amixer_mutex);
-
-        if (last_amixer_msg.valid)
-        {
-            local_amixer_msg = last_amixer_msg;
-            last_amixer_msg.valid = false;
-        }
-
-        pthread_mutex_unlock(&last_amixer_mutex);
-
-        if (local_amixer_msg.valid)
-        {
-            local_amixer_msg.valid = false;
-            handle_postponed_message(&local_amixer_msg, s_debug);
-        }
-
-        sem_wait(&last_amixer_semaphore);
-    }
-
-    return NULL;
-
-    // unused
-    (void)arg;
-}
-
 void create_postponed_messages_thread(const bool debug)
 {
-    s_debug = debug;
-    last_amixer_thread_running = true;
-    sem_init(&last_amixer_semaphore, 0, 0);
-    pthread_create(&last_amixer_thread, NULL, postponed_messages_thread_run, NULL);
+    sys_host_setup(debug);
+    sys_mixer_setup(debug);
 }
 
-void destroy_postponded_messages_thread(void)
+void destroy_postponed_messages_thread(void)
 {
-    last_amixer_thread_running = false;
-    sem_post(&last_amixer_semaphore);
-    pthread_join(last_amixer_thread, NULL);
-    sem_destroy(&last_amixer_semaphore);
+    sys_host_destroy();
+    sys_mixer_destroy();
 }
 
 bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff], const bool debug)
@@ -190,30 +118,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
         if (*argvs != '\0')
         {
             value = ++argvs;
-
-            pthread_mutex_lock(&last_amixer_mutex);
-
-            // trigger previously cached value if does not match current one
-            if (last_amixer_msg.valid && (last_amixer_msg.input != input ||
-                                          last_amixer_msg.channel != channel ||
-                                          strcmp(last_amixer_msg.control, "xvol") != 0))
-            {
-                handle_postponed_message(&last_amixer_msg, debug);
-            }
-
-            // cache request for later handling
-            last_amixer_msg.valid = true;
-            last_amixer_msg.input = input;
-            last_amixer_msg.channel = channel;
-            strcpy(last_amixer_msg.control, "xvol");
-            strncpy(last_amixer_msg.value, value, sizeof(last_amixer_msg.value)-1);
-
-            sem_post(&last_amixer_semaphore);
-            pthread_mutex_unlock(&last_amixer_mutex);
-
-            if (debug)
-                printf("%s: postponing amixer gain value set\n", __func__);
-
+            sys_mixer_gain(input, channel, value);
             return write_or_close(serialport, "r 0");
         }
 
@@ -231,28 +136,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
 
         if (value != NULL)
         {
-            pthread_mutex_lock(&last_amixer_mutex);
-
-            // trigger previously cached value if does not match current one
-            if (last_amixer_msg.valid && (last_amixer_msg.channel != 'h' ||
-                                          strcmp(last_amixer_msg.control, "xvol") != 0))
-            {
-                handle_postponed_message(&last_amixer_msg, debug);
-            }
-
-            // cache request for later handling
-            last_amixer_msg.valid = true;
-            last_amixer_msg.input = false;
-            last_amixer_msg.channel = 'h';
-            strcpy(last_amixer_msg.control, "xvol");
-            strncpy(last_amixer_msg.value, value, sizeof(last_amixer_msg.value)-1);
-
-            sem_post(&last_amixer_semaphore);
-            pthread_mutex_unlock(&last_amixer_mutex);
-
-            if (debug)
-                printf("%s: postponing amixer hp gain value set\n", __func__);
-
+            sys_mixer_headphone(value);
             return write_or_close(serialport, "r 0");
         }
 
