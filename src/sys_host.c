@@ -3,6 +3,8 @@
  */
 
 #include "sys_host.h"
+
+#define SERVER_MODE
 #include "sys_host_impl.h"
 
 #include <pthread.h>
@@ -32,7 +34,7 @@ void sys_host_setup(const bool debug)
 {
     s_debug = debug;
 
-    if (! sys_serial_open(&sys_host_shmfd, &sys_host_data, true))
+    if (! sys_serial_open(&sys_host_shmfd, &sys_host_data))
     {
         fprintf(stderr, "sys_host shared memory failed\n");
         return;
@@ -51,5 +53,5 @@ void sys_host_destroy()
     sem_post(&sys_host_data->sem);
     pthread_join(sys_host_thread, NULL);
 
-    sys_serial_close(sys_host_shmfd, sys_host_data, true);
+    sys_serial_close(sys_host_shmfd, sys_host_data);
 }

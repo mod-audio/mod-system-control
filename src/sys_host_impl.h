@@ -17,21 +17,30 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+// must be 8192 - sizeof sys_serial_shm_data members, so we cleanly align to 64bits
+#define SYS_SERIAL_SHM_DATA_SIZE (8192 - sizeof(sem_t) - sizeof(uint32_t)*2)
+
 typedef struct {
+    // semaphore for syncing
     sem_t sem;
-    uint8_t buffer[4096 - sizeof(sem_t)];
+    // for ring-buffer access
+    uint32_t head, tail;
+    // actual buffer
+    uint8_t buffer[SYS_SERIAL_SHM_DATA_SIZE];
 } sys_serial_shm_data;
 
 static inline
-bool sys_serial_open(int* shmfd, sys_serial_shm_data** data, bool server)
+bool sys_serial_open(int* shmfd, sys_serial_shm_data** data)
 {
     int fd;
     sem_t sem;
     sys_serial_shm_data* ptr;
 
-    fd = server
-       ? shm_open(SYS_SERIAL_SHM, O_CREAT|O_EXCL|O_RDWR, 0600)
-       : shm_open(SYS_SERIAL_SHM, O_RDWR, 0);
+#ifdef SERVER_MODE
+    fd = shm_open(SYS_SERIAL_SHM, O_CREAT|O_EXCL|O_RDWR, 0600);
+#else
+    fd = shm_open(SYS_SERIAL_SHM, O_RDWR, 0);
+#endif
 
     if (fd < 0)
     {
@@ -39,19 +48,18 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data, bool server)
         return false;
     }
 
-    if (server)
+#ifdef SERVER_MODE
+    if (ftruncate(fd, sizeof(sys_serial_shm_data)) != 0)
     {
-        if (ftruncate(fd, sizeof(sys_serial_shm_data)) != 0)
-        {
-            fprintf(stderr, "ftruncate failed\n");
-            goto cleanup;
-        }
-        if (sem_init(&sem, 1, 0) != 0)
-        {
-            fprintf(stderr, "sem_init failed\n");
-            goto cleanup;
-        }
+        fprintf(stderr, "ftruncate failed\n");
+        goto cleanup;
     }
+    if (sem_init(&sem, 1, 0) != 0)
+    {
+        fprintf(stderr, "sem_init failed\n");
+        goto cleanup;
+    }
+#endif
 
     ptr = (sys_serial_shm_data*)mmap(NULL,
                                      sizeof(sys_serial_shm_data),
@@ -66,24 +74,23 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data, bool server)
         goto cleanup_sem;
     }
 
+    memset(ptr, 0, sizeof(sys_serial_shm_data));
     ptr->sem = sem;
-    memset(ptr->buffer, 0, sizeof(ptr->buffer));
 
     *shmfd = fd;
     *data = ptr;
     return true;
 
 cleanup_sem:
-    /*
-    if (server)
-        sem_destroy(sem);
-    */
+#ifdef SERVER_MODE
+    sem_destroy(&sem);
+#endif
 
 cleanup:
     close(fd);
-
-    if (server)
-        shm_unlink(SYS_SERIAL_SHM);
+#ifdef SERVER_MODE
+    shm_unlink(SYS_SERIAL_SHM);
+#endif
 
     *shmfd = 0;
     *data = NULL;
@@ -91,14 +98,23 @@ cleanup:
 }
 
 static inline
-void sys_serial_close(int shmfd, sys_serial_shm_data* data, bool server)
+void sys_serial_close(int shmfd, sys_serial_shm_data* data)
 {
-    if (server)
-        sem_destroy(&data->sem);
-
+#ifdef SERVER_MODE
+    sem_destroy(&data->sem);
+#endif
     munmap(data, sizeof(sys_serial_shm_data));
-    close(shmfd);
 
-    if (server)
-        shm_unlink(SYS_SERIAL_SHM);
+    close(shmfd);
+#ifdef SERVER_MODE
+    shm_unlink(SYS_SERIAL_SHM);
+#endif
+}
+
+static inline
+void sys_serial_write(sys_serial_shm_data* data, const char* msg)
+{
+    // TODO
+    printf("%s\n", msg);
+    sem_post(&data->sem);
 }
