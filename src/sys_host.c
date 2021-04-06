@@ -11,6 +11,7 @@ static volatile bool sys_host_thread_running = false;
 static int sys_host_shmfd;
 static sys_serial_shm_data* sys_host_data;
 static pthread_t sys_host_thread;
+static bool s_debug;
 
 static void* sys_host_thread_run(void* const arg)
 {
@@ -29,6 +30,8 @@ static void* sys_host_thread_run(void* const arg)
 
 void sys_host_setup(const bool debug)
 {
+    s_debug = debug;
+
     if (! sys_serial_open(&sys_host_shmfd, &sys_host_data, true))
     {
         fprintf(stderr, "sys_host shared memory failed\n");

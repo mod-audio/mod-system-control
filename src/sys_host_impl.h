@@ -53,7 +53,12 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data, bool server)
         }
     }
 
-    ptr = mmap(NULL, sizeof(sys_serial_shm_data), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, fd, 0);
+    ptr = (sys_serial_shm_data*)mmap(NULL,
+                                     sizeof(sys_serial_shm_data),
+                                     PROT_READ|PROT_WRITE,
+                                     MAP_SHARED|MAP_LOCKED,
+                                     fd,
+                                     0);
 
     if (ptr == NULL || ptr == MAP_FAILED)
     {
