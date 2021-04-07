@@ -20,6 +20,20 @@
 // must be 8192 - sizeof sys_serial_shm_data members, so we cleanly align to 64bits
 #define SYS_SERIAL_SHM_DATA_SIZE (8192 - sizeof(sem_t) - sizeof(uint32_t)*2)
 
+// FIXME should we use binary form, or string?
+// FIXME using string with "%c %s" syntax? (for 'l' led, 'n' name, 'v' value, 'u' unit)
+typedef enum {
+    sys_serial_event_type_null = 0,
+    sys_serial_event_type_led,
+    sys_serial_event_type_label,
+    sys_serial_event_type_unit
+} sys_serial_event_type;
+
+typedef struct {
+    sys_serial_event_type type;
+    char value[8];
+} sys_serial_event;
+
 typedef struct {
     // semaphore for syncing
     sem_t sem;
@@ -111,10 +125,63 @@ void sys_serial_close(int shmfd, sys_serial_shm_data* data)
 #endif
 }
 
+// server
 static inline
-void sys_serial_write(sys_serial_shm_data* data, const char* msg)
+bool sys_serial_read(sys_serial_shm_data* data, sys_serial_event* event)
 {
+    if (data->head == data->tail)
+        return false;
+
     // TODO
-    printf("%s\n", msg);
+    event->type = sys_serial_event_type_null;
+    return true;
+}
+
+// client
+static inline
+bool sys_serial_write(sys_serial_shm_data* data, const uint8_t* buf, uint32_t size)
+{
+    if (size == 0)
+        return false;
+    if (size >= SYS_SERIAL_SHM_DATA_SIZE)
+        return false;
+
+    const uint32_t head = data->head;
+    const uint32_t tail = data->tail;
+    const uint32_t wrap = tail > head ? 0 : SYS_SERIAL_SHM_DATA_SIZE;
+
+    if (size >= wrap + tail - head)
+    {
+        fprintf(stderr, "sys_serial_write: failed, not enough space\n");
+        return false;
+    }
+
+    uint32_t nexthead = head + size;
+
+    if (nexthead > SYS_SERIAL_SHM_DATA_SIZE)
+    {
+        nexthead -= SYS_SERIAL_SHM_DATA_SIZE;
+
+        if (size == 1)
+        {
+            memcpy(data->buffer + head, buf, size);
+        }
+        else
+        {
+            const uint32_t firstpart = SYS_SERIAL_SHM_DATA_SIZE - head;
+            memcpy(data->buffer + head, buf, firstpart);
+            memcpy(data->buffer, buf + firstpart, nexthead);
+        }
+    }
+    else
+    {
+        memcpy(data->buffer + head, buf, size);
+
+        if (nexthead == SYS_SERIAL_SHM_DATA_SIZE)
+            nexthead = 0;
+    }
+
+    data->head = nexthead;
     sem_post(&data->sem);
+    return true;
 }
