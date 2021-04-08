@@ -9,6 +9,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -206,15 +207,21 @@ sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport)
     }
 }
 
-bool write_or_close(struct sp_port* serialport, const char* const msg)
+bool write_or_close(struct sp_port* const serialport, const char* const msg)
 {
+    static pthread_mutex_t writelock = PTHREAD_MUTEX_INITIALIZER;
+
+    pthread_mutex_lock(&writelock);
     errno = 0;
+
     if (sp_nonblocking_write(serialport, msg, strlen(msg)+1) == -SP_ERR_FAIL && errno == EIO)
     {
         sp_close(serialport);
+        pthread_mutex_unlock(&writelock);
         return false;
     }
 
+    pthread_mutex_unlock(&writelock);
     return true;
 }
 
