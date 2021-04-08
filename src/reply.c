@@ -89,6 +89,11 @@ void create_postponed_messages_thread(const bool debug)
     sys_mixer_setup(debug);
 }
 
+void process_postponed_messages(struct sp_port* const serialport)
+{
+    sys_host_process(serialport);
+}
+
 void destroy_postponed_messages_thread(void)
 {
     sys_host_destroy();

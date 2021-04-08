@@ -2,6 +2,8 @@
  * This file is part of mod-system-control.
  */
 
+#pragma once
+
 #include <stdbool.h>
 
 void sys_mixer_setup(bool debug);
