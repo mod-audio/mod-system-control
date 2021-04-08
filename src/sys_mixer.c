@@ -3,6 +3,7 @@
  */
 
 #include "sys_mixer.h"
+#include "serial.h"
 
 #include <pthread.h>
 #include <semaphore.h>

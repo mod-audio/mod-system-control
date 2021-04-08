@@ -17,11 +17,24 @@ static bool s_debug;
 
 static void* sys_host_thread_run(void* const arg)
 {
+    sys_serial_event_type etype;
+    char msg[SYS_SERIAL_SHM_DATA_SIZE];
+
     while (sys_host_thread_running)
     {
-        printf("got sys host event %i\n", sys_host_data->buffer[0]);
-
         sem_wait(&sys_host_data->sem);
+
+        if (! sys_host_thread_running)
+            break;
+
+        while (sys_host_data->head != sys_host_data->tail)
+        {
+            if (! sys_serial_read(sys_host_data, &etype, msg))
+                continue;
+
+            // TODO do something with this value
+            printf("got sys host event %02x '%s'\n", etype, msg);
+        }
     }
 
     return NULL;
