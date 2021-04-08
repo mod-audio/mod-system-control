@@ -20,26 +20,20 @@
 // must be 8192 - sizeof sys_serial_shm_data members, so we cleanly align to 64bits
 #define SYS_SERIAL_SHM_DATA_SIZE (8192 - sizeof(sem_t) - sizeof(uint32_t)*2)
 
-// FIXME should we use binary form, or string?
-// FIXME using string with "%c %s" syntax? (for 'l' led, 'n' name, 'v' value, 'u' unit)
 typedef enum {
     sys_serial_event_type_null = 0,
-    sys_serial_event_type_led,
-    sys_serial_event_type_label,
-    sys_serial_event_type_unit
+    sys_serial_event_type_led = 'l',
+    sys_serial_event_type_name = 'n',
+    sys_serial_event_type_value = 'v',
+    sys_serial_event_type_unit = 'u'
 } sys_serial_event_type;
-
-typedef struct {
-    sys_serial_event_type type;
-    char value[8];
-} sys_serial_event;
 
 typedef struct {
     // semaphore for syncing
     sem_t sem;
-    // for ring-buffer access
+    // for ringbuffer-like access
     uint32_t head, tail;
-    // actual buffer
+    // actual data buffer
     uint8_t buffer[SYS_SERIAL_SHM_DATA_SIZE];
 } sys_serial_shm_data;
 
@@ -125,26 +119,65 @@ void sys_serial_close(int shmfd, sys_serial_shm_data* data)
 #endif
 }
 
-// server
+// server, read must only be a result of a semaphore post action
 static inline
-bool sys_serial_read(sys_serial_shm_data* data, sys_serial_event* event)
+bool sys_serial_read(sys_serial_shm_data* data, sys_serial_event_type* etype, char msg[SYS_SERIAL_SHM_DATA_SIZE])
 {
     if (data->head == data->tail)
         return false;
 
-    // TODO
-    event->type = sys_serial_event_type_null;
+    const uint32_t head = data->head;
+    const uint32_t tail = data->tail;
+    const uint8_t firstbyte = data->buffer[tail];
+
+    switch (firstbyte)
+    {
+    case sys_serial_event_type_led:
+    case sys_serial_event_type_name:
+    case sys_serial_event_type_value:
+    case sys_serial_event_type_unit:
+        break;
+    default:
+        fprintf(stderr, "sys_serial_read: failed, invalid byte %02x\n", firstbyte);
+        return false;
+    }
+
+    // keep reading until reaching null byte or head
+    uint32_t nexttail = tail + 1;
+    for (uint32_t i=0; i < SYS_SERIAL_SHM_DATA_SIZE; ++i, ++nexttail)
+    {
+        if (nexttail == SYS_SERIAL_SHM_DATA_SIZE)
+            nexttail = 0;
+
+        msg[i] = data->buffer[nexttail];
+
+        if (msg[i] == 0)
+            break;
+
+        if (nexttail == head)
+        {
+            fprintf(stderr, "sys_serial_read: failed, tail reached head without finding null byte\n");
+            return false;
+        }
+    }
+
+    *etype = firstbyte;
     return true;
 }
 
-// client
+// client, not thread-safe, needs write lock
 static inline
-bool sys_serial_write(sys_serial_shm_data* data, const uint8_t* buf, uint32_t size)
+bool sys_serial_write(sys_serial_shm_data* data, sys_serial_event_type etype, const char* msg)
 {
+    uint32_t size = strlen(msg);
+
     if (size == 0)
         return false;
     if (size >= SYS_SERIAL_SHM_DATA_SIZE)
         return false;
+
+    // add space for etype and terminating null byte
+    size += 2;
 
     const uint32_t head = data->head;
     const uint32_t tail = data->tail;
@@ -156,29 +189,27 @@ bool sys_serial_write(sys_serial_shm_data* data, const uint8_t* buf, uint32_t si
         return false;
     }
 
+    data->buffer[head] = etype;
+
     uint32_t nexthead = head + size;
 
     if (nexthead > SYS_SERIAL_SHM_DATA_SIZE)
     {
         nexthead -= SYS_SERIAL_SHM_DATA_SIZE;
 
-        if (size == 1)
-        {
-            memcpy(data->buffer + head, buf, size);
-        }
-        else
-        {
-            const uint32_t firstpart = SYS_SERIAL_SHM_DATA_SIZE - head;
-            memcpy(data->buffer + head, buf, firstpart);
-            memcpy(data->buffer, buf + firstpart, nexthead);
-        }
+        const uint32_t firstpart = SYS_SERIAL_SHM_DATA_SIZE - head - 1;
+
+        if (firstpart != 0)
+            memcpy(data->buffer + head + 1, msg, firstpart);
+
+        memcpy(data->buffer, msg + firstpart, nexthead - 1);
     }
     else
     {
-        memcpy(data->buffer + head, buf, size);
-
         if (nexthead == SYS_SERIAL_SHM_DATA_SIZE)
             nexthead = 0;
+
+        memcpy(data->buffer + head + 1, msg, size - 1);
     }
 
     data->head = nexthead;
