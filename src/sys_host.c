@@ -5,6 +5,8 @@
 #include "sys_host.h"
 #include "serial_rw.h"
 
+#include "../mod-controller-proto/mod-protocol.h"
+
 #define SERVER_MODE
 #include "sys_host_impl.h"
 
@@ -18,13 +20,37 @@ static pthread_t sys_host_thread;
 static int sys_host_has_msgs;
 static bool s_debug;
 
+//tmp, remove later
+static int num_hex_digits(unsigned n)
+{
+    if (!n) return 1;
+
+    int ret = 0;
+    for (; n; n >>= 4) {
+        ++ret;
+    }
+    return ret;
+}
+
+static uint32_t int_to_hex_str(int32_t num, char *string)
+{
+    const char hex_lookup[] = "0123456789abcdef";
+    int len = num_hex_digits(num);
+
+    if (len & 1) {
+        *string++ = '0';
+    }
+    string[len] = '\0';
+
+    for (--len; len >= 0; num >>= 4, --len) {
+        string[len] = hex_lookup[num & 0xf];
+    }
+
+    return 0;
+}
+
 static void* sys_host_thread_run(void* const arg)
 {
-    /*
-    sys_serial_event_type etype;
-    char msg[SYS_SERIAL_SHM_DATA_SIZE];
-    */
-
     while (sys_host_thread_running)
     {
         sem_wait(&sys_host_data->sem);
@@ -33,23 +59,43 @@ static void* sys_host_thread_run(void* const arg)
             break;
 
         sys_host_has_msgs = 1;
-
-        /*
-        while (sys_host_data->head != sys_host_data->tail)
-        {
-            if (! sys_serial_read(sys_host_data, &etype, msg))
-                continue;
-
-            // TODO do something with this value
-            printf("got sys host event %02x '%s'\n", etype, msg);
-        }
-        */
     }
 
     return NULL;
 
     // unused
     (void)arg;
+}
+
+static void sys_host_send_command(struct sp_port* const serialport, const char *command, const char *arguments)
+{
+    char buffer[20];
+    memset(buffer, 0, sizeof buffer);
+
+    //copy command
+    uint8_t i = 0;
+    while (*command && (*command != '%' && *command != '.')) {
+        buffer[i++] = *command;
+        command++;
+    }
+
+    if (arguments) {
+        //add size as hex number
+        char str_bfr[9] = {};
+        i+=2;
+        i += int_to_hex_str(strlen(arguments), str_bfr);
+        strcat(buffer, str_bfr);
+
+        buffer[i++] = ' ';
+
+        //add arguments
+        strcat(buffer, arguments);
+    }
+    else
+        buffer[_CMD_SYS_LENGTH] = '\0';
+
+    write_or_close(serialport, buffer);
+    serial_read_ignore_until_zero(serialport);
 }
 
 void sys_host_setup(const bool debug)
@@ -84,9 +130,7 @@ void sys_host_process(struct sp_port* const serialport)
         switch (etype)
         {
         case sys_serial_event_type_led: {
-            // TODO hardcoded
-            write_or_close(serialport, !strcmp(msg, "green") ? "ls 0 3 0 255 0" : "ls 0 3 255 0 0");
-            serial_read_ignore_until_zero(serialport);
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_LED, &msg[3]);
             break;
         }
         default:
