@@ -69,7 +69,7 @@ static void* sys_host_thread_run(void* const arg)
 
 static void sys_host_send_command(struct sp_port* const serialport, const char *command, const char *arguments)
 {
-    char buffer[20];
+    char buffer[30];
     memset(buffer, 0, sizeof buffer);
 
     //copy command
@@ -88,7 +88,6 @@ static void sys_host_send_command(struct sp_port* const serialport, const char *
 
         buffer[i++] = ' ';
 
-        //add arguments
         strcat(buffer, arguments);
     }
     else
@@ -133,12 +132,34 @@ void sys_host_process(struct sp_port* const serialport)
             sys_host_send_command(serialport, CMD_SYS_CHANGE_LED, &msg[3]);
             break;
         }
+        case sys_serial_event_type_name: {
+            char buffer[20];
+            memset(buffer, 0, sizeof buffer);
+            strncpy (buffer, &msg[3], 2);
+            strcat(buffer, "\"");
+            strcat(buffer, &msg[5]);
+            strcat(buffer, "\"");
+            printf("name change %02x '%s'\n", etype, buffer);
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_NAME, buffer);
+            break;
+        }
+        case sys_serial_event_type_unit: {
+            char buffer[20];
+            memset(buffer, 0, sizeof buffer);
+            strncpy (buffer, &msg[3], 2);
+            strcat(buffer, "\"");
+            strcat(buffer, &msg[5]);
+            strcat(buffer, "\"");
+            printf("unit change %02x '%s'\n", etype, buffer);
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_UNIT, buffer);
+            break;
+        }
         default:
             break;
         }
 
         // TODO do something with this value
-        printf("got sys host event %02x '%s'\n", etype, msg);
+        printf("got sys host event %02x '%s'\n", etype, &msg[3]);
     }
 }
 
