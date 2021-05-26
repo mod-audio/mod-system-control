@@ -27,7 +27,7 @@ typedef enum {
     sys_serial_event_type_name = 0x80 + 'n',
     sys_serial_event_type_value = 0x80 + 'v',
     sys_serial_event_type_unit = 0x80 + 'u',
-    sys_serial_event_type_widget_indicator = 0x80 + 'i',
+    sys_serial_event_type_widget_indicator = 0x80 + 'i'
 } sys_serial_event_type;
 
 typedef struct {
@@ -150,6 +150,7 @@ bool sys_serial_read(sys_serial_shm_data* data, sys_serial_event_type* etype, ch
     case sys_serial_event_type_name:
     case sys_serial_event_type_value:
     case sys_serial_event_type_unit:
+    case sys_serial_event_type_widget_indicator:
         break;
     default:
         fprintf(stderr, "sys_serial_read: failed, invalid byte %02x\n", firstbyte);
