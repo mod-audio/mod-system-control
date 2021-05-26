@@ -154,6 +154,21 @@ void sys_host_process(struct sp_port* const serialport)
             sys_host_send_command(serialport, CMD_SYS_CHANGE_UNIT, buffer);
             break;
         }
+        case sys_serial_event_type_value: {
+            char buffer[20];
+            memset(buffer, 0, sizeof buffer);
+            strncpy (buffer, &msg[3], 2);
+            strcat(buffer, "\"");
+            strcat(buffer, &msg[5]);
+            strcat(buffer, "\"");
+            printf("value change %02x '%s'\n", etype, buffer);
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_VALUE, buffer);
+            break;
+        }
+        case sys_serial_event_type_widget_indicator: {
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, &msg[3]);
+            break;
+        }
         default:
             break;
         }
