@@ -37,6 +37,10 @@ typedef struct {
     uint32_t head, tail;
     // actual data buffer
     uint8_t buffer[SYS_SERIAL_SHM_DATA_SIZE];
+} sys_serial_shm_data_channel;
+
+typedef struct {
+    sys_serial_shm_data_channel server, client;
 } sys_serial_shm_data;
 
 static inline
@@ -44,7 +48,7 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data)
 {
     int fd;
 #ifdef SERVER_MODE
-    sem_t sem;
+    sem_t sem_server, sem_client;
 #endif
     sys_serial_shm_data* ptr;
 
@@ -69,9 +73,14 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data)
         fprintf(stderr, "ftruncate failed\n");
         goto cleanup;
     }
-    if (sem_init(&sem, 1, 0) != 0)
+    if (sem_init(&sem_server, 1, 0) != 0)
     {
-        fprintf(stderr, "sem_init failed\n");
+        fprintf(stderr, "server sem_init failed\n");
+        goto cleanup;
+    }
+    if (sem_init(&sem_client, 1, 0) != 0)
+    {
+        fprintf(stderr, "client sem_init failed\n");
         goto cleanup;
     }
 #endif
@@ -91,7 +100,8 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data)
 
 #ifdef SERVER_MODE
     memset(ptr, 0, sizeof(sys_serial_shm_data));
-    ptr->sem = sem;
+    ptr->server.sem = sem_server;
+    ptr->client.sem = sem_client;
 #endif
 
     *shmfd = fd;
@@ -100,7 +110,8 @@ bool sys_serial_open(int* shmfd, sys_serial_shm_data** data)
 
 cleanup_sem:
 #ifdef SERVER_MODE
-    sem_destroy(&sem);
+    sem_destroy(&sem_server);
+    sem_destroy(&sem_client);
 #endif
 
 #ifdef SERVER_MODE
@@ -120,7 +131,8 @@ static inline
 void sys_serial_close(int shmfd, sys_serial_shm_data* data)
 {
 #ifdef SERVER_MODE
-    sem_destroy(&data->sem);
+    sem_destroy(&data->server.sem);
+    sem_destroy(&data->client.sem);
 #endif
     munmap(data, sizeof(sys_serial_shm_data));
 
@@ -132,7 +144,9 @@ void sys_serial_close(int shmfd, sys_serial_shm_data* data)
 
 // server, read must only be a result of a semaphore post action
 static inline
-bool sys_serial_read(sys_serial_shm_data* data, sys_serial_event_type* etype, char msg[SYS_SERIAL_SHM_DATA_SIZE])
+bool sys_serial_read(sys_serial_shm_data_channel* data,
+                     sys_serial_event_type* etype,
+                     char msg[SYS_SERIAL_SHM_DATA_SIZE])
 {
     if (data->head == data->tail)
     {
@@ -191,7 +205,9 @@ bool sys_serial_read(sys_serial_shm_data* data, sys_serial_event_type* etype, ch
 
 // client, not thread-safe, needs write lock
 static inline
-bool sys_serial_write(sys_serial_shm_data* data, sys_serial_event_type etype, const char* msg)
+bool sys_serial_write(sys_serial_shm_data_channel* const data,
+                      const sys_serial_event_type etype,
+                      const char* const msg)
 {
     uint32_t size = strlen(msg);
 

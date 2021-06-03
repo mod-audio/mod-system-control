@@ -20,40 +20,11 @@ static pthread_t sys_host_thread;
 static int sys_host_has_msgs;
 static bool s_debug;
 
-//tmp, remove later
-static int num_hex_digits(unsigned n)
-{
-    if (!n) return 1;
-
-    int ret = 0;
-    for (; n; n >>= 4) {
-        ++ret;
-    }
-    return ret;
-}
-
-static uint32_t int_to_hex_str(int32_t num, char *string)
-{
-    const char hex_lookup[] = "0123456789abcdef";
-    int len = num_hex_digits(num);
-
-    if (len & 1) {
-        *string++ = '0';
-    }
-    string[len] = '\0';
-
-    for (--len; len >= 0; num >>= 4, --len) {
-        string[len] = hex_lookup[num & 0xf];
-    }
-
-    return 0;
-}
-
 static void* sys_host_thread_run(void* const arg)
 {
     while (sys_host_thread_running)
     {
-        sem_wait(&sys_host_data->sem);
+        sem_wait(&sys_host_data->server.sem);
 
         if (! sys_host_thread_running)
             break;
@@ -67,33 +38,45 @@ static void* sys_host_thread_run(void* const arg)
     (void)arg;
 }
 
-static void sys_host_send_command(struct sp_port* const serialport, const char *command, const char *arguments)
+static void sys_host_send_command(struct sp_port* serialport, const char* sys_cmd,
+                                  char msg[SYS_SERIAL_SHM_DATA_SIZE], bool quoted)
 {
-    char buffer[30];
-    memset(buffer, 0, sizeof buffer);
+    const uint8_t len = strlen(msg);
+    const size_t msg_offset = _CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2 /* spaces */ + (quoted ? 1 : 0);
 
-    //copy command
-    uint8_t i = 0;
-    while (*command && (*command != '%' && *command != '.')) {
-        buffer[i++] = *command;
-        command++;
+    // move value string
+    memmove(msg + msg_offset, msg, len+1);
+
+    // place command at start of msg
+    memcpy(msg, sys_cmd, _CMD_SYS_LENGTH);
+
+    // store msg size
+    snprintf(msg + (_CMD_SYS_LENGTH + 1), _CMD_SYS_DATA_LENGTH + 1, "%02x", len);
+
+    // spaces
+    msg[_CMD_SYS_LENGTH] = ' ';
+    msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 1] = ' ';
+
+    // quotes, if needed
+    if (quoted)
+    {
+        msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 2] = msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 3];
+        msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 3] = ' ';
+        msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + 4] = '"';
+        msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + len + 3] = '"';
+        msg[_CMD_SYS_LENGTH + _CMD_SYS_DATA_LENGTH + len + 4] = '\0';
     }
 
-    if (arguments) {
-        //add size as hex number
-        char str_bfr[9] = {};
-        i+=2;
-        i += int_to_hex_str(strlen(arguments), str_bfr);
-        strcat(buffer, str_bfr);
-
-        buffer[i++] = ' ';
-
-        strcat(buffer, arguments);
+    if (s_debug)
+    {
+        fprintf(stdout, "sys_host_send_command '%s'\n", msg);
+        fflush(stdout);
     }
-    else
-        buffer[_CMD_SYS_LENGTH] = '\0';
 
-    write_or_close(serialport, buffer);
+    // write message
+    write_or_close(serialport, msg);
+
+    // response
     serial_read_ignore_until_zero(serialport);
 }
 
@@ -118,63 +101,36 @@ void sys_host_process(struct sp_port* const serialport)
     if (! __sync_bool_compare_and_swap(&sys_host_has_msgs, 1, 0))
         return;
 
+    sys_serial_shm_data_channel* const data = &sys_host_data->server;
+
     sys_serial_event_type etype;
     char msg[SYS_SERIAL_SHM_DATA_SIZE];
 
-    while (sys_host_data->head != sys_host_data->tail)
+    while (data->head != data->tail)
     {
-        if (! sys_serial_read(sys_host_data, &etype, msg))
+        if (! sys_serial_read(data, &etype, msg))
             continue;
 
         switch (etype)
         {
-        case sys_serial_event_type_led: {
-            sys_host_send_command(serialport, CMD_SYS_CHANGE_LED, &msg[3]);
+        case sys_serial_event_type_null:
+            break;
+        case sys_serial_event_type_led:
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_LED, msg, false);
+            break;
+        case sys_serial_event_type_name:
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_NAME, msg, true);
+            break;
+        case sys_serial_event_type_unit:
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_UNIT, msg, true);
+            break;
+        case sys_serial_event_type_value:
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_VALUE, msg, true);
+            break;
+        case sys_serial_event_type_widget_indicator:
+            sys_host_send_command(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, msg, false);
             break;
         }
-        case sys_serial_event_type_name: {
-            char buffer[20];
-            memset(buffer, 0, sizeof buffer);
-            strncpy (buffer, &msg[3], 2);
-            strcat(buffer, "\"");
-            strcat(buffer, &msg[5]);
-            strcat(buffer, "\"");
-            printf("name change %02x '%s'\n", etype, buffer);
-            sys_host_send_command(serialport, CMD_SYS_CHANGE_NAME, buffer);
-            break;
-        }
-        case sys_serial_event_type_unit: {
-            char buffer[20];
-            memset(buffer, 0, sizeof buffer);
-            strncpy (buffer, &msg[3], 2);
-            strcat(buffer, "\"");
-            strcat(buffer, &msg[5]);
-            strcat(buffer, "\"");
-            printf("unit change %02x '%s'\n", etype, buffer);
-            sys_host_send_command(serialport, CMD_SYS_CHANGE_UNIT, buffer);
-            break;
-        }
-        case sys_serial_event_type_value: {
-            char buffer[20];
-            memset(buffer, 0, sizeof buffer);
-            strncpy (buffer, &msg[3], 2);
-            strcat(buffer, "\"");
-            strcat(buffer, &msg[5]);
-            strcat(buffer, "\"");
-            printf("value change %02x '%s'\n", etype, buffer);
-            sys_host_send_command(serialport, CMD_SYS_CHANGE_VALUE, buffer);
-            break;
-        }
-        case sys_serial_event_type_widget_indicator: {
-            sys_host_send_command(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, &msg[3]);
-            break;
-        }
-        default:
-            break;
-        }
-
-        // TODO do something with this value
-        printf("got sys host event %02x '%s'\n", etype, &msg[3]);
     }
 }
 
@@ -184,7 +140,7 @@ void sys_host_destroy()
         return;
 
     sys_host_thread_running = false;
-    sem_post(&sys_host_data->sem);
+    sem_post(&sys_host_data->server.sem);
     pthread_join(sys_host_thread, NULL);
 
     sys_serial_close(sys_host_shmfd, sys_host_data);
