@@ -83,6 +83,22 @@ static bool read_file_and_write_contents_resp(struct sp_port* const serialport, 
     return write_or_close(serialport, "r -1");
 }
 
+static bool write_int_resp(struct sp_port* const serialport, const int resp, const bool debug)
+{
+    char respbuf[0xff];
+    snprintf(respbuf, sizeof(respbuf), "r %i", resp);
+    respbuf[sizeof(respbuf)-1] = '\0';
+    return write_or_close(serialport, respbuf);
+}
+
+static bool write_float_resp(struct sp_port* const serialport, const float resp, const bool debug)
+{
+    char respbuf[0xff];
+    snprintf(respbuf, sizeof(respbuf), "r %f", resp);
+    respbuf[sizeof(respbuf)-1] = '\0';
+    return write_or_close(serialport, respbuf);
+}
+
 void create_postponed_messages_thread(const bool debug)
 {
     sys_host_setup(debug);
@@ -254,6 +270,96 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
         execute(argv_hmi_reset, debug);
         execute(argv_reboot, debug);
         return true;
+    }
+
+    if (strncmp(msg, CMD_SYS_COMP_MODE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const mode = strlen(msg) > SYS_CMD_ARG_START
+                               ? msg + SYS_CMD_ARG_START
+                               : NULL;
+
+        if (mode != NULL)
+        {
+            sys_host_set_compressor_mode(atoi(mode));
+            return write_or_close(serialport, "r 0");
+        }
+
+        return write_int_resp(serialport, sys_host_get_compressor_mode(), debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_COMP_RELEASE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_host_set_compressor_release(atof(value));
+            return write_or_close(serialport, "r 0");
+        }
+
+        return write_float_resp(serialport, sys_host_get_compressor_release(), debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_NG_CHANNEL, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const channel = strlen(msg) > SYS_CMD_ARG_START
+                                  ? msg + SYS_CMD_ARG_START
+                                  : NULL;
+
+        if (channel != NULL)
+        {
+            sys_host_set_noisegate_channel(atoi(channel));
+            return write_or_close(serialport, "r 0");
+        }
+
+        return write_int_resp(serialport, sys_host_get_noisegate_channel(), debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_NG_THRESHOLD, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_host_set_noisegate_threshold(atof(value));
+            return write_or_close(serialport, "r 0");
+        }
+
+        return write_float_resp(serialport, sys_host_get_noisegate_threshold(), debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_NG_DECAY, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_host_set_noisegate_decay(atof(value));
+            return write_or_close(serialport, "r 0");
+        }
+
+        return write_float_resp(serialport, sys_host_get_noisegate_decay(), debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_COMP_PEDALBOARD_GAIN, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_host_set_pedalboard_gain(atof(value));
+            return write_or_close(serialport, "r 0");
+        }
+
+        return write_float_resp(serialport, sys_host_get_pedalboard_gain(), debug);
     }
 
     fprintf(stderr, "%s: unknown message '%s'\n", __func__, msg);

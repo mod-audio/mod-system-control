@@ -23,11 +23,19 @@
 // using invalid ascii characters as to not conflict with regular text contents
 typedef enum {
     sys_serial_event_type_null = 0,
+    // client -> server
     sys_serial_event_type_led = 0x80 + 'l',
     sys_serial_event_type_name = 0x80 + 'n',
     sys_serial_event_type_value = 0x80 + 'v',
     sys_serial_event_type_unit = 0x80 + 'u',
-    sys_serial_event_type_widget_indicator = 0x80 + 'i'
+    sys_serial_event_type_widget_indicator = 0x80 + 'i',
+    // server -> client
+    sys_serial_event_type_compressor_mode = 0x80 + 'm',
+    sys_serial_event_type_compressor_release = 0x80 + 'r',
+    sys_serial_event_type_noisegate_channel = 0x80 + 'c',
+    sys_serial_event_type_noisegate_decay = 0x80 + 'd',
+    sys_serial_event_type_noisegate_threshold = 0x80 + 't',
+    sys_serial_event_type_pedalboard_gain = 0x80 + 'g'
 } sys_serial_event_type;
 
 typedef struct {
