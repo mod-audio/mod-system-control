@@ -52,6 +52,7 @@ static void handle_postponed_message(const amixer_msg* const msg)
 static void* postponed_messages_thread_run(void* const arg)
 {
     struct amixer_msg local_amixer_msg;
+    memset(&local_amixer_msg, 0, sizeof(local_amixer_msg));
 
     while (sys_mixer_thread_running)
     {
