@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
     fprintf(stdout, "%s stopping...\n", argv[0]);
 
     // close postponed messages thread
-    destroy_postponded_messages_thread();
+    destroy_postponed_messages_thread();
 
     // close serial port
     serial_close(serialport);

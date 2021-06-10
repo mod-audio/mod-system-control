@@ -160,7 +160,7 @@ void create_postponed_messages_thread(const bool debug)
     pthread_create(&last_amixer_thread, NULL, postponed_messages_thread_run, NULL);
 }
 
-void destroy_postponded_messages_thread(void)
+void destroy_postponed_messages_thread(void)
 {
     last_amixer_thread_running = false;
     sem_post(&last_amixer_semaphore);
