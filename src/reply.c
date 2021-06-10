@@ -88,6 +88,10 @@ static bool write_int_resp(struct sp_port* const serialport, const int resp, con
     char respbuf[0xff];
     snprintf(respbuf, sizeof(respbuf), "r %i", resp);
     respbuf[sizeof(respbuf)-1] = '\0';
+
+    if (debug)
+        printf("sending response '%s'\n", respbuf);
+
     return write_or_close(serialport, respbuf);
 }
 
@@ -96,6 +100,10 @@ static bool write_float_resp(struct sp_port* const serialport, const float resp,
     char respbuf[0xff];
     snprintf(respbuf, sizeof(respbuf), "r %f", resp);
     respbuf[sizeof(respbuf)-1] = '\0';
+
+    if (debug)
+        printf("sending response '%s'\n", respbuf);
+
     return write_or_close(serialport, respbuf);
 }
 
