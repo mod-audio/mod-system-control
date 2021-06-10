@@ -191,7 +191,7 @@ sp_read_error_status serial_read_ignore_until_zero(struct sp_port* serialport)
     char c;
     enum sp_return ret;
 
-    const int timeout = imax(SP_BLOCKING_READ_TIMEOUT/10,1);
+    const int timeout = imax(SP_BLOCKING_READ_TIMEOUT/2,1);
 
     for (;;)
     {
