@@ -27,8 +27,8 @@ static float pedalboard_gain = 0.0f;
 
 // noise gate state
 static int noisegate_channel = 0;
-float noisegate_threshold = -60.0f;
-float noisegate_decay = 10.0f;
+static float noisegate_threshold = -60.0f;
+static float noisegate_decay = 10.0f;
 
 static void* sys_host_thread_run(void* const arg)
 {
@@ -217,37 +217,37 @@ float sys_host_get_pedalboard_gain(void)
     return pedalboard_gain;
 }
 
-void sys_host_set_compressor_mode(int mode)
+void sys_host_set_compressor_mode(const int mode)
 {
     compressor_mode = mode;
     send_command_to_host_int(sys_serial_event_type_compressor_mode, mode);
 }
 
-void sys_host_set_compressor_release(float value)
+void sys_host_set_compressor_release(const float value)
 {
     compressor_release = value;
     send_command_to_host_float(sys_serial_event_type_compressor_release, value);
 }
 
-void sys_host_set_noisegate_channel(int channel)
+void sys_host_set_noisegate_channel(const int channel)
 {
     noisegate_channel = channel;
     send_command_to_host_int(sys_serial_event_type_noisegate_channel, channel);
 }
 
-void sys_host_set_noisegate_threshold(float value)
+void sys_host_set_noisegate_threshold(const float value)
 {
     noisegate_threshold = value;
     send_command_to_host_float(sys_serial_event_type_noisegate_threshold, value);
 }
 
-void sys_host_set_noisegate_decay(float value)
+void sys_host_set_noisegate_decay(const float value)
 {
     noisegate_decay = value;
     send_command_to_host_float(sys_serial_event_type_noisegate_decay, value);
 }
 
-void sys_host_set_pedalboard_gain(float value)
+void sys_host_set_pedalboard_gain(const float value)
 {
     pedalboard_gain = value;
     send_command_to_host_float(sys_serial_event_type_pedalboard_gain, value);
