@@ -177,18 +177,10 @@ bool read_file(char buf[0xff], const char* const filename, const bool debug)
         return false;
     }
 
-    ssize_t r = fread(buf, 0xff-1, 1, fd);
+    ssize_t r = fread(buf, 1, 0xff-1, fd);
 
-    if (r < 0 || r >= 0xff)
+    if (r <= 0 || r >= 0xff)
         goto error;
-
-    if (r == 0)
-    {
-        if (feof(fd) != 0)
-            r = strlen(buf);
-        else
-            goto error;
-    }
 
     if (debug)
         printf("%s: got %li bytes\n", __func__, r);
