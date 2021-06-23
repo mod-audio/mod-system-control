@@ -36,11 +36,11 @@ static int noisegate_threshold = -60;
 static int hmi_page = 0;
 static int hmi_subpage = 0;
 
-static void read_host_values(void)
+static bool read_host_values(void)
 {
     char buf[0xff];
     if (! read_file(buf, "/data/audioproc.txt", s_debug))
-        return;
+        return false;
 
     int cmode = -1, crelease = 0, pgain = 0, ngchannel = -1, ngdecay = 0, ngthreshold = 0;
     sscanf(buf, "%i\n%i\n%i\n%i\n%i\n%i\n",
@@ -48,17 +48,17 @@ static void read_host_values(void)
 
     // bail out if any value is invalid
     if (cmode < 0 || cmode > 4)
-        return;
+        return false;
     if (crelease < 50 || crelease > 1000)
-        return;
+        return false;
     if (pgain < -30 || pgain > 30)
-        return;
+        return false;
     if (ngchannel < 0 || ngchannel > 3)
-        return;
+        return false;
     if (ngdecay < 2 || ngdecay > 200)
-        return;
+        return false;
     if (ngthreshold < -80 || ngthreshold > -10)
-        return;
+        return false;
 
     if (s_debug) {
         printf("%s success, values: %i, %i, %i, %i, %i, %i\n",
@@ -72,6 +72,7 @@ static void read_host_values(void)
     noisegate_channel = ngchannel;
     noisegate_decay = ngdecay;
     noisegate_threshold = ngthreshold;
+    return true;
 }
 
 static void write_host_values(void)
@@ -198,7 +199,15 @@ void sys_host_setup(const bool debug)
         return;
     }
 
-    read_host_values();
+    if (read_host_values())
+    {
+        send_command_to_host_int(sys_serial_event_type_compressor_mode, compressor_mode);
+        send_command_to_host_int(sys_serial_event_type_compressor_release, compressor_release);
+        send_command_to_host_int(sys_serial_event_type_noisegate_channel, noisegate_channel);
+        send_command_to_host_int(sys_serial_event_type_noisegate_decay, noisegate_decay);
+        send_command_to_host_int(sys_serial_event_type_noisegate_threshold, noisegate_threshold);
+        send_command_to_host_int(sys_serial_event_type_pedalboard_gain, pedalboard_gain);
+    }
 
     sys_host_thread_running = true;
     pthread_create(&sys_host_thread, NULL, sys_host_thread_run, NULL);
