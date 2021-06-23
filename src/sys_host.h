@@ -25,3 +25,6 @@ void sys_host_set_noisegate_channel(int channel);
 void sys_host_set_noisegate_decay(int value);
 void sys_host_set_noisegate_threshold(int value);
 void sys_host_set_pedalboard_gain(int value);
+
+void sys_host_set_hmi_page(int page);
+void sys_host_set_hmi_subpage(int subpage);

@@ -86,7 +86,7 @@ static bool read_file_and_write_contents_resp(struct sp_port* const serialport, 
 static bool write_int_resp(struct sp_port* const serialport, const int resp, const bool debug)
 {
     char respbuf[0xff];
-    snprintf(respbuf, sizeof(respbuf), "r %i", resp);
+    snprintf(respbuf, sizeof(respbuf), "r 0 %i", resp);
     respbuf[sizeof(respbuf)-1] = '\0';
 
     if (debug)
@@ -99,7 +99,7 @@ static bool write_int_resp(struct sp_port* const serialport, const int resp, con
 static bool write_float_resp(struct sp_port* const serialport, const float resp, const bool debug)
 {
     char respbuf[0xff];
-    snprintf(respbuf, sizeof(respbuf), "r %f", resp);
+    snprintf(respbuf, sizeof(respbuf), "r 0 %f", resp);
     respbuf[sizeof(respbuf)-1] = '\0';
 
     if (debug)
@@ -370,6 +370,32 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
         }
 
         return write_int_resp(serialport, sys_host_get_pedalboard_gain(), debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_PAGE_CHANGE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value == NULL)
+            return write_or_close(serialport, "r -1");
+
+        sys_host_set_hmi_page(atoi(value));
+        return write_or_close(serialport, "r 0");
+    }
+
+    if (strncmp(msg, CMD_SYS_SUBPAGE_CHANGE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value == NULL)
+            return write_or_close(serialport, "r -1");
+
+        sys_host_set_hmi_subpage(atoi(value));
+        return write_or_close(serialport, "r 0");
     }
 
     fprintf(stderr, "%s: unknown message '%s'\n", __func__, msg);

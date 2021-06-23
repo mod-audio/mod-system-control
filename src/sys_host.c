@@ -30,6 +30,10 @@ static int noisegate_channel = 0;
 static int noisegate_decay = 10;
 static int noisegate_threshold = -60;
 
+// page cache handling
+static int hmi_page = 0;
+static int hmi_subpage = 0;
+
 static void* sys_host_thread_run(void* const arg)
 {
     while (sys_host_thread_running)
@@ -145,11 +149,15 @@ void sys_host_process(struct sp_port* const serialport)
     sys_serial_shm_data_channel* const data = &sys_host_data->server;
 
     sys_serial_event_type etype;
+    uint8_t page, subpage;
     char msg[SYS_SERIAL_SHM_DATA_SIZE];
 
     while (data->head != data->tail)
     {
-        if (! sys_serial_read(data, &etype, msg))
+        if (! sys_serial_read(data, &etype, &page, &subpage, msg))
+            continue;
+
+        if (page != hmi_page || subpage != hmi_subpage)
             continue;
 
         switch (etype)
@@ -253,4 +261,14 @@ void sys_host_set_pedalboard_gain(const int value)
 {
     pedalboard_gain = value;
     send_command_to_host_int(sys_serial_event_type_pedalboard_gain, value);
+}
+
+void sys_host_set_hmi_page(const int page)
+{
+    hmi_page = page;
+}
+
+void sys_host_set_hmi_subpage(const int subpage)
+{
+    hmi_subpage = subpage;
 }
