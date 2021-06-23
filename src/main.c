@@ -83,9 +83,11 @@ int main(int argc, char* argv[])
         switch (serial_read_msg_until_zero(serialport, buf, debug))
         {
         case SP_READ_ERROR_NO_DATA:
+            process_postponed_messages(serialport);
             continue;
         case SP_READ_ERROR_INVALID_DATA:
             serial_read_ignore_until_zero(serialport);
+            process_postponed_messages(serialport);
             continue;
         case SP_READ_ERROR_IO:
             break;

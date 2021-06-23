@@ -13,4 +13,5 @@
 bool parse_and_reply_to_message(struct sp_port* serialport, char msg[0xff], bool debug);
 
 void create_postponed_messages_thread(bool debug);
+void process_postponed_messages(struct sp_port* serialport);
 void destroy_postponed_messages_thread(void);
