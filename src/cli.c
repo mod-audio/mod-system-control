@@ -135,7 +135,7 @@ bool create_file(const char* const filename, const bool debug)
     {
         if (debug)
             printf("%s: failed to open filename '%s' for writing\n", __func__, filename);
-        return true;
+        return false;
 
     }
 
@@ -195,4 +195,25 @@ bool read_file(char buf[0xff], const char* const filename, const bool debug)
 error:
     memset(buf, 0, sizeof(char)*0xff);
     return false;
+}
+
+bool write_file(char buf[0xff], const char* const filename, const bool debug)
+{
+    FILE* const fd = fopen(filename, "w");
+
+    if (fd == NULL)
+    {
+        if (debug)
+            printf("%s: failed to open filename '%s' for writing\n", __func__, filename);
+        return false;
+
+    }
+
+    fwrite(buf, 1, strlen(buf), fd);
+    fclose(fd);
+
+    if (debug)
+        printf("%s: filename '%s' was written to successfully\n", __func__, filename);
+
+    return true;
 }
