@@ -32,9 +32,25 @@ static int noisegate_channel = 0;
 static int noisegate_decay = 10;
 static int noisegate_threshold = -60;
 
+#if defined(_MOD_DEVICE_DWARF)
+#define HMI_NUM_PAGES 8
+#define HMI_NUM_SUBPAGES 3
+#define HMI_NUM_ACTUATORS 6
+#endif
+
 // page cache handling
+typedef struct HMI_CACHE_T {
+    // values match mod-host message size
+    char led[32];
+    char label[24];
+    char value[24];
+    char unit[24];
+    char indicator[32];
+} hmi_cache_t;
+static hmi_cache_t* hmi_cache[HMI_NUM_PAGES * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS];
 static int hmi_page = 0;
 static int hmi_subpage = 0;
+static bool hmi_page_or_subpage_changed = false;
 
 static bool read_host_values(void)
 {
@@ -116,6 +132,116 @@ static void* sys_host_thread_run(void* const arg)
     (void)arg;
 }
 
+static bool hmi_command_cache_add(const uint8_t page,
+                                  const uint8_t subpage,
+                                  const sys_serial_event_type etype,
+                                  char msg[SYS_SERIAL_SHM_DATA_SIZE])
+{
+    if (page >= HMI_NUM_PAGES)
+        return false;
+    if (subpage >= HMI_NUM_SUBPAGES)
+        return false;
+
+    char actuator[8];
+    memset(actuator, 0, sizeof(actuator));
+    for (uint8_t i=0; i<sizeof(actuator); ++i)
+        if ((actuator[i] = msg[i]) == ' ')
+            actuator[i] = '\0';
+
+    // sanity check
+    for (uint8_t i=0; i < sizeof(actuator) && actuator[i] != '\0'; ++i)
+        if (actuator[i] < '0' || actuator[i] > '9')
+            return false;
+    if (actuator[sizeof(actuator)-1] != '\0')
+        return false;
+
+    const int actuatorId = atoi(actuator);
+
+    if (actuatorId >= HMI_NUM_ACTUATORS)
+        return false;
+
+    const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
+    hmi_cache_t* cache = hmi_cache[index];
+
+    if (cache == NULL)
+    {
+        hmi_cache[index] = cache = calloc(1, sizeof(hmi_cache_t));
+
+        if (cache == NULL)
+            return false;
+    }
+
+    const bool ret = page == hmi_page && subpage == hmi_subpage;
+
+    switch (etype)
+    {
+    case sys_serial_event_type_led:
+        strncpy(cache->led, msg, sizeof(cache->led));
+        break;
+    case sys_serial_event_type_name:
+        strncpy(cache->label, msg, sizeof(cache->label));
+        break;
+    case sys_serial_event_type_unit:
+        strncpy(cache->unit, msg, sizeof(cache->unit));
+        break;
+    case sys_serial_event_type_value:
+        strncpy(cache->value, msg, sizeof(cache->value));
+        break;
+    case sys_serial_event_type_widget_indicator:
+        strncpy(cache->indicator, msg, sizeof(cache->indicator));
+        break;
+    default:
+        break;
+    }
+
+    if (s_debug && !ret) {
+        printf("%s cached: %u, %u, '%s'\n", __func__, page, subpage, msg);
+    }
+
+    return ret;
+}
+
+static void hmi_command_cache_remove(const uint8_t page, const uint8_t subpage, char msg[SYS_SERIAL_SHM_DATA_SIZE])
+{
+    if (s_debug) {
+        printf("%s called with values: %u, %u, '%s'\n", __func__, page, subpage, msg);
+    }
+    if (page >= HMI_NUM_PAGES)
+        return;
+    if (subpage >= HMI_NUM_SUBPAGES)
+        return;
+
+    char actuator[8];
+    memset(actuator, 0, sizeof(actuator));
+    for (uint8_t i=0; i<sizeof(actuator); ++i)
+        if ((actuator[i] = msg[i]) == ' ')
+            actuator[i] = '\0';
+
+    // sanity check
+    for (uint8_t i=0; i < sizeof(actuator) && actuator[i] != '\0'; ++i)
+        if (actuator[i] < '0' || actuator[i] > '9')
+            return;
+    if (actuator[sizeof(actuator)-1] != '\0')
+        return;
+
+    const int actuatorId = atoi(actuator);
+
+    if (actuatorId >= HMI_NUM_ACTUATORS)
+        return;
+
+    const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
+
+    if (s_debug) {
+        printf("%s has index %lu and cache pointer %p\n", __func__, index, hmi_cache[index]);
+    }
+
+    if (hmi_cache[index] != NULL)
+    {
+        free(hmi_cache[index]);
+        hmi_cache[index] = NULL;
+    }
+}
+
 static void send_command_to_hmi(struct sp_port* const serialport, const char* const sys_cmd,
                                 char msg[SYS_SERIAL_SHM_DATA_SIZE], const bool quoted)
 {
@@ -189,6 +315,48 @@ static void send_command_to_host_float(const sys_serial_event_type etype, const 
 }
 */
 
+static void sys_host_resend_hmi(struct sp_port* const serialport)
+{
+    size_t index;
+    hmi_cache_t* cache;
+    char msg[SYS_SERIAL_SHM_DATA_SIZE];
+
+    for (int i=0; i<HMI_NUM_SUBPAGES; ++i)
+    {
+        index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + hmi_subpage * HMI_NUM_ACTUATORS + i;
+        cache = hmi_cache[index];
+
+        if (cache == NULL)
+            continue;
+
+        if (cache->led[0] != '\0')
+        {
+            memcpy(msg, cache->led, sizeof(cache->led));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED, msg, false);
+        }
+        if (cache->label[0] != '\0')
+        {
+            memcpy(msg, cache->label, sizeof(cache->label));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_NAME, msg, true);
+        }
+        if (cache->unit[0] != '\0')
+        {
+            memcpy(msg, cache->unit, sizeof(cache->unit));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_UNIT, msg, true);
+        }
+        if (cache->value[0] != '\0')
+        {
+            memcpy(msg, cache->value, sizeof(cache->value));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_VALUE, msg, true);
+        }
+        if (cache->indicator[0] != '\0')
+        {
+            memcpy(msg, cache->indicator, sizeof(cache->indicator));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, msg, false);
+        }
+    }
+}
+
 void sys_host_setup(const bool debug)
 {
     s_debug = debug;
@@ -217,6 +385,13 @@ void sys_host_process(struct sp_port* const serialport)
 {
     if (sys_host_data == NULL)
         return;
+
+    if (hmi_page_or_subpage_changed)
+    {
+        hmi_page_or_subpage_changed = false;
+        sys_host_resend_hmi(serialport);
+    }
+
     if (! __sync_bool_compare_and_swap(&sys_host_has_msgs, 1, 0))
         return;
 
@@ -231,27 +406,30 @@ void sys_host_process(struct sp_port* const serialport)
         if (! sys_serial_read(data, &etype, &page, &subpage, msg))
             continue;
 
-        if (page != hmi_page || subpage != hmi_subpage)
-            continue;
-
         switch (etype)
         {
-        case sys_serial_event_type_null:
+        case sys_serial_event_type_unassign:
+            hmi_command_cache_remove(page, subpage, msg);
             break;
         case sys_serial_event_type_led:
-            send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED, msg, false);
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED, msg, false);
             break;
         case sys_serial_event_type_name:
-            send_command_to_hmi(serialport, CMD_SYS_CHANGE_NAME, msg, true);
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_NAME, msg, true);
             break;
         case sys_serial_event_type_unit:
-            send_command_to_hmi(serialport, CMD_SYS_CHANGE_UNIT, msg, true);
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_UNIT, msg, true);
             break;
         case sys_serial_event_type_value:
-            send_command_to_hmi(serialport, CMD_SYS_CHANGE_VALUE, msg, true);
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_VALUE, msg, true);
             break;
         case sys_serial_event_type_widget_indicator:
-            send_command_to_hmi(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, msg, false);
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, msg, false);
             break;
         default:
             break;
@@ -345,10 +523,18 @@ void sys_host_set_pedalboard_gain(const int value)
 
 void sys_host_set_hmi_page(const int page)
 {
+    if (hmi_page == page)
+        return;
+
     hmi_page = page;
+    hmi_page_or_subpage_changed = true;
 }
 
 void sys_host_set_hmi_subpage(const int subpage)
 {
+    if (hmi_subpage == subpage)
+        return;
+
     hmi_subpage = subpage;
+    hmi_page_or_subpage_changed = true;
 }
