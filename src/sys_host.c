@@ -50,7 +50,7 @@ typedef struct HMI_CACHE_T {
 static hmi_cache_t* hmi_cache[HMI_NUM_PAGES * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS];
 static int hmi_page = 0;
 static int hmi_subpage = 0;
-static bool hmi_page_or_subpage_changed = false;
+static int hmi_page_or_subpage_changed = 0;
 
 static bool read_host_values(void)
 {
@@ -388,8 +388,12 @@ void sys_host_process(struct sp_port* const serialport)
 
     if (hmi_page_or_subpage_changed)
     {
-        hmi_page_or_subpage_changed = false;
-        sys_host_resend_hmi(serialport);
+        // NOTE this is racy, workaround for mod-ui side handling messages slower than us
+        if (++hmi_page_or_subpage_changed == 10)
+        {
+            hmi_page_or_subpage_changed = 0;
+            sys_host_resend_hmi(serialport);
+        }
     }
 
     if (! __sync_bool_compare_and_swap(&sys_host_has_msgs, 1, 0))
@@ -527,7 +531,7 @@ void sys_host_set_hmi_page(const int page)
         return;
 
     hmi_page = page;
-    hmi_page_or_subpage_changed = true;
+    hmi_page_or_subpage_changed = 1;
 }
 
 void sys_host_set_hmi_subpage(const int subpage)
@@ -536,5 +540,5 @@ void sys_host_set_hmi_subpage(const int subpage)
         return;
 
     hmi_subpage = subpage;
-    hmi_page_or_subpage_changed = true;
+    hmi_page_or_subpage_changed = 1;
 }
