@@ -144,7 +144,7 @@ static bool hmi_command_cache_add(const uint8_t page,
 
     char actuator[8];
     memset(actuator, 0, sizeof(actuator));
-    for (uint8_t i=0; i<sizeof(actuator); ++i)
+    for (uint8_t i=0; i<sizeof(actuator) && msg[i] != '\0'; ++i)
         if ((actuator[i] = msg[i]) == ' ')
             actuator[i] = '\0';
 
