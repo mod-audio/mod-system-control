@@ -133,7 +133,7 @@ static void* sys_host_thread_run(void* const arg)
 }
 
 static bool hmi_command_cache_add(const uint8_t page,
-                                  const uint8_t subpage,
+                                  uint8_t subpage,
                                   const sys_serial_event_type etype,
                                   char msg[SYS_SERIAL_SHM_DATA_SIZE])
 {
@@ -160,6 +160,21 @@ static bool hmi_command_cache_add(const uint8_t page,
     if (actuatorId >= HMI_NUM_ACTUATORS)
         return false;
 
+    bool matching_subpage;
+#ifdef _MOD_DEVICE_DWARF
+    // special exception for dwarf
+    if (actuatorId >= 3)
+    {
+        subpage = 0;
+        matching_subpage = true;
+    }
+    else
+#else
+    {
+        matching_subpage = subpage == hmi_subpage;
+    }
+#endif
+
     const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
     hmi_cache_t* cache = hmi_cache[index];
 
@@ -171,24 +186,24 @@ static bool hmi_command_cache_add(const uint8_t page,
             return false;
     }
 
-    const bool ret = page == hmi_page && subpage == hmi_subpage;
+    const bool ret = page == hmi_page && matching_subpage;
 
     switch (etype)
     {
     case sys_serial_event_type_led:
-        strncpy(cache->led, msg, sizeof(cache->led));
+        strncpy(cache->led, msg, sizeof(cache->led)-1);
         break;
     case sys_serial_event_type_name:
-        strncpy(cache->label, msg, sizeof(cache->label));
+        strncpy(cache->label, msg, sizeof(cache->label)-1);
         break;
     case sys_serial_event_type_unit:
-        strncpy(cache->unit, msg, sizeof(cache->unit));
+        strncpy(cache->unit, msg, sizeof(cache->unit)-1);
         break;
     case sys_serial_event_type_value:
-        strncpy(cache->value, msg, sizeof(cache->value));
+        strncpy(cache->value, msg, sizeof(cache->value)-1);
         break;
     case sys_serial_event_type_widget_indicator:
-        strncpy(cache->indicator, msg, sizeof(cache->indicator));
+        strncpy(cache->indicator, msg, sizeof(cache->indicator)-1);
         break;
     default:
         break;
@@ -201,7 +216,7 @@ static bool hmi_command_cache_add(const uint8_t page,
     return ret;
 }
 
-static void hmi_command_cache_remove(const uint8_t page, const uint8_t subpage, char msg[SYS_SERIAL_SHM_DATA_SIZE])
+static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char msg[SYS_SERIAL_SHM_DATA_SIZE])
 {
     if (s_debug) {
         printf("%s called with values: %u, %u, '%s'\n", __func__, page, subpage, msg);
@@ -228,6 +243,12 @@ static void hmi_command_cache_remove(const uint8_t page, const uint8_t subpage, 
 
     if (actuatorId >= HMI_NUM_ACTUATORS)
         return;
+
+#ifdef _MOD_DEVICE_DWARF
+    // special exception for dwarf
+    if (actuatorId >= 3)
+        subpage = 0;
+#endif
 
     const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
 
@@ -320,10 +341,19 @@ static void sys_host_resend_hmi(struct sp_port* const serialport)
     size_t index;
     hmi_cache_t* cache;
     char msg[SYS_SERIAL_SHM_DATA_SIZE];
+    int subpage;
 
-    for (int i=0; i<HMI_NUM_SUBPAGES; ++i)
+    for (int i=0; i<HMI_NUM_ACTUATORS; ++i)
     {
-        index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + hmi_subpage * HMI_NUM_ACTUATORS + i;
+#ifdef _MOD_DEVICE_DWARF
+        // special exception for dwarf
+        if (i >= 3)
+            subpage = 0;
+        else
+#endif
+            subpage = hmi_subpage;
+
+        index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + i;
         cache = hmi_cache[index];
 
         if (cache == NULL)
