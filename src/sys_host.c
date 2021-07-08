@@ -169,11 +169,10 @@ static bool hmi_command_cache_add(const uint8_t page,
         matching_subpage = true;
     }
     else
-#else
+#endif
     {
         matching_subpage = subpage == hmi_subpage;
     }
-#endif
 
     const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
     hmi_cache_t* cache = hmi_cache[index];
