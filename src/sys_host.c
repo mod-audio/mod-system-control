@@ -24,13 +24,13 @@ static bool s_debug;
 
 // compressor state
 static int compressor_mode = 0;
-static int compressor_release = 100;
-static int pedalboard_gain = 0;
+static float compressor_release = 100.0f;
+static float pedalboard_gain = 0.0f;
 
 // noise gate state
 static int noisegate_channel = 0;
-static int noisegate_decay = 10;
-static int noisegate_threshold = -60;
+static float noisegate_decay = 10.0f;
+static float noisegate_threshold = -60.0f;
 
 #if defined(_MOD_DEVICE_DWARF)
 #define HMI_NUM_PAGES 8
@@ -58,26 +58,27 @@ static bool read_host_values(void)
     if (! read_file(buf, "/data/audioproc.txt", s_debug))
         return false;
 
-    int cmode = -1, crelease = 0, pgain = 0, ngchannel = -1, ngdecay = 0, ngthreshold = 0;
-    sscanf(buf, "%i\n%i\n%i\n%i\n%i\n%i\n",
+    int cmode = -1, ngchannel = -1;
+    float crelease = 0, pgain = 0, ngdecay = 0, ngthreshold = 0;
+    sscanf(buf, "%i\n%f\n%f\n%i\n%f\n%f\n",
            &cmode, &crelease, &pgain, &ngchannel, &ngdecay, &ngthreshold);
 
     // bail out if any value is invalid
     if (cmode < 0 || cmode > 4)
         return false;
-    if (crelease < 50 || crelease > 1000)
+    if (crelease < 50.0f || crelease > 500.0f)
         return false;
-    if (pgain < -30 || pgain > 30)
+    if (pgain < -80.0f || pgain > 10.0f)
         return false;
     if (ngchannel < 0 || ngchannel > 3)
         return false;
-    if (ngdecay < 2 || ngdecay > 200)
+    if (ngdecay < 1.0f || ngdecay > 500.0f)
         return false;
-    if (ngthreshold < -80 || ngthreshold > -10)
+    if (ngthreshold < -80.0f || ngthreshold > -10.0f)
         return false;
 
     if (s_debug) {
-        printf("%s success, values: %i, %i, %i, %i, %i, %i\n",
+        printf("%s success, values: %i, %f, %f, %i, %f, %f\n",
                __func__, cmode, crelease, pgain, ngchannel, ngdecay, ngthreshold);
     }
 
@@ -94,14 +95,14 @@ static bool read_host_values(void)
 static void write_host_values(void)
 {
     const int cmode = compressor_mode;
-    const int crelease = compressor_release;
-    const int pgain = pedalboard_gain;
+    const float crelease = compressor_release;
+    const float pgain = pedalboard_gain;
     const int ngchannel = noisegate_channel;
-    const int ngdecay = noisegate_decay;
-    const int ngthreshold = noisegate_threshold;
+    const float ngdecay = noisegate_decay;
+    const float ngthreshold = noisegate_threshold;
 
     char buf[0xff];
-    snprintf(buf, sizeof(buf), "%i\n%i\n%i\n%i\n%i\n%i\n",
+    snprintf(buf, sizeof(buf), "%i\n%f\n%f\n%i\n%f\n%f\n",
              cmode, crelease, pgain, ngchannel, ngdecay, ngthreshold);
     buf[sizeof(buf)-1] = '\0';
     write_file(buf, "/data/audioproc.txt", s_debug);
@@ -325,7 +326,6 @@ static void send_command_to_host_int(const sys_serial_event_type etype, const in
     send_command_to_host(etype, str);
 }
 
-/*
 static void send_command_to_host_float(const sys_serial_event_type etype, const float value)
 {
     char str[32];
@@ -333,7 +333,6 @@ static void send_command_to_host_float(const sys_serial_event_type etype, const 
     str[sizeof(str)-1] = '\0';
     send_command_to_host(etype, str);
 }
-*/
 
 static void sys_host_resend_hmi(struct sp_port* const serialport)
 {
@@ -399,11 +398,11 @@ void sys_host_setup(const bool debug)
     if (read_host_values())
     {
         send_command_to_host_int(sys_serial_event_type_compressor_mode, compressor_mode);
-        send_command_to_host_int(sys_serial_event_type_compressor_release, compressor_release);
+        send_command_to_host_float(sys_serial_event_type_compressor_release, compressor_release);
         send_command_to_host_int(sys_serial_event_type_noisegate_channel, noisegate_channel);
-        send_command_to_host_int(sys_serial_event_type_noisegate_decay, noisegate_decay);
-        send_command_to_host_int(sys_serial_event_type_noisegate_threshold, noisegate_threshold);
-        send_command_to_host_int(sys_serial_event_type_pedalboard_gain, pedalboard_gain);
+        send_command_to_host_float(sys_serial_event_type_noisegate_decay, noisegate_decay);
+        send_command_to_host_float(sys_serial_event_type_noisegate_threshold, noisegate_threshold);
+        send_command_to_host_float(sys_serial_event_type_pedalboard_gain, pedalboard_gain);
     }
 
     sys_host_thread_running = true;
@@ -487,7 +486,7 @@ int sys_host_get_compressor_mode(void)
     return compressor_mode;
 }
 
-int sys_host_get_compressor_release(void)
+float sys_host_get_compressor_release(void)
 {
     return compressor_release;
 }
@@ -497,17 +496,17 @@ int sys_host_get_noisegate_channel(void)
     return noisegate_channel;
 }
 
-int sys_host_get_noisegate_decay(void)
+float sys_host_get_noisegate_decay(void)
 {
     return noisegate_decay;
 }
 
-int sys_host_get_noisegate_threshold(void)
+float sys_host_get_noisegate_threshold(void)
 {
     return noisegate_threshold;
 }
 
-int sys_host_get_pedalboard_gain(void)
+float sys_host_get_pedalboard_gain(void)
 {
     return pedalboard_gain;
 }
@@ -519,7 +518,7 @@ void sys_host_set_compressor_mode(const int mode)
     send_command_to_host_int(sys_serial_event_type_compressor_mode, mode);
 }
 
-void sys_host_set_compressor_release(const int value)
+void sys_host_set_compressor_release(const float value)
 {
     compressor_release = value;
     sys_host_values_changed = true;
@@ -533,21 +532,21 @@ void sys_host_set_noisegate_channel(const int channel)
     send_command_to_host_int(sys_serial_event_type_noisegate_channel, channel);
 }
 
-void sys_host_set_noisegate_decay(const int value)
+void sys_host_set_noisegate_decay(const float value)
 {
     noisegate_decay = value;
     sys_host_values_changed = true;
     send_command_to_host_int(sys_serial_event_type_noisegate_decay, value);
 }
 
-void sys_host_set_noisegate_threshold(const int value)
+void sys_host_set_noisegate_threshold(const float value)
 {
     noisegate_threshold = value;
     sys_host_values_changed = true;
     send_command_to_host_int(sys_serial_event_type_noisegate_threshold, value);
 }
 
-void sys_host_set_pedalboard_gain(const int value)
+void sys_host_set_pedalboard_gain(const float value)
 {
     pedalboard_gain = value;
     sys_host_values_changed = true;
