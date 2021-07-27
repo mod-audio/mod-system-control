@@ -269,6 +269,49 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
         }
     }
 
+    if (strncmp(msg, CMD_SYS_NOISE_REMOVAL, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        // changing to new mode
+        if (value != NULL)
+        {
+            const char mode = *value;
+
+            switch (mode)
+            {
+            case '0':
+                delete_file("/data/noise-removal-active", debug);
+                break;
+            case '1':
+                create_file("/data/noise-removal-active", debug);
+                break;
+            }
+
+            printf("%s: noise-removal mode set to %c, sending 'r 0'\n", __func__, mode);
+            return write_or_close(serialport, "r 0");
+        }
+        // reading current mode
+        else
+        {
+            char mode;
+
+            if (access("/data/noise-removal-active", F_OK) == 0)
+                mode = '1';
+            else
+                mode = '0';
+
+            char respbuf[6] = {
+                'r', ' ', '0', ' ', mode, '\0'
+            };
+
+            printf("%s: usb mode request, sending '%s'\n", __func__, respbuf);
+            return write_or_close(serialport, respbuf);
+        }
+    }
+
     if (strncmp(msg, CMD_SYS_REBOOT, _CMD_SYS_LENGTH) == 0)
     {
         // HMI is useless after this point, so print resp asap and move on with the reboot
