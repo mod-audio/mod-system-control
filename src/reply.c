@@ -95,7 +95,6 @@ static bool write_int_resp(struct sp_port* const serialport, const int resp, con
     return write_or_close(serialport, respbuf);
 }
 
-/*
 static bool write_float_resp(struct sp_port* const serialport, const float resp, const bool debug)
 {
     char respbuf[0xff];
@@ -107,7 +106,6 @@ static bool write_float_resp(struct sp_port* const serialport, const float resp,
 
     return write_or_close(serialport, respbuf);
 }
-*/
 
 void create_postponed_messages_thread(const bool debug)
 {
@@ -382,7 +380,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
             return write_or_close(serialport, "r 0");
         }
 
-        return write_int_resp(serialport, sys_host_get_noisegate_threshold(), debug);
+        return write_float_resp(serialport, sys_host_get_noisegate_threshold(), debug);
     }
 
     if (strncmp(msg, CMD_SYS_NG_DECAY, _CMD_SYS_LENGTH) == 0)
@@ -412,7 +410,7 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
             return write_or_close(serialport, "r 0");
         }
 
-        return write_int_resp(serialport, sys_host_get_pedalboard_gain(), debug);
+        return write_float_resp(serialport, sys_host_get_pedalboard_gain(), debug);
     }
 
     if (strncmp(msg, CMD_SYS_PAGE_CHANGE, _CMD_SYS_LENGTH) == 0)
