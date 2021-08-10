@@ -38,6 +38,13 @@ static float noisegate_threshold = -60.0f;
 #define HMI_NUM_ACTUATORS 6
 #endif
 
+// fallback
+#ifndef HMI_NUM_PAGES
+#define HMI_NUM_PAGES 1
+#define HMI_NUM_SUBPAGES 1
+#define HMI_NUM_ACTUATORS 2
+#endif
+
 // page cache handling
 typedef struct HMI_CACHE_T {
     // values match mod-host message size
@@ -51,6 +58,7 @@ static hmi_cache_t* hmi_cache[HMI_NUM_PAGES * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATO
 static int hmi_page = 0;
 static int hmi_subpage = 0;
 static int hmi_page_or_subpage_changed = 0;
+static bool hmi_io_values_requested = false;
 
 static bool read_host_values(void)
 {
@@ -228,7 +236,7 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
 
     char actuator[8];
     memset(actuator, 0, sizeof(actuator));
-    for (uint8_t i=0; i<sizeof(actuator); ++i)
+    for (uint8_t i=0; i<sizeof(actuator) && msg[i] != '\0'; ++i)
         if ((actuator[i] = msg[i]) == ' ')
             actuator[i] = '\0';
 
@@ -395,16 +403,7 @@ void sys_host_setup(const bool debug)
         return;
     }
 
-    if (read_host_values())
-    {
-        send_command_to_host_int(sys_serial_event_type_compressor_mode, compressor_mode);
-        send_command_to_host_float(sys_serial_event_type_compressor_release, compressor_release);
-        send_command_to_host_int(sys_serial_event_type_noisegate_channel, noisegate_channel);
-        send_command_to_host_float(sys_serial_event_type_noisegate_decay, noisegate_decay);
-        send_command_to_host_float(sys_serial_event_type_noisegate_threshold, noisegate_threshold);
-        send_command_to_host_float(sys_serial_event_type_pedalboard_gain, pedalboard_gain);
-    }
-
+    read_host_values();
     sys_host_thread_running = true;
     pthread_create(&sys_host_thread, NULL, sys_host_thread_run, NULL);
 }
@@ -424,6 +423,17 @@ void sys_host_process(struct sp_port* const serialport)
         }
     }
 
+    if (hmi_io_values_requested)
+    {
+        hmi_io_values_requested = false;
+        send_command_to_host_int(sys_serial_event_type_compressor_mode, compressor_mode);
+        send_command_to_host_float(sys_serial_event_type_compressor_release, compressor_release);
+        send_command_to_host_int(sys_serial_event_type_noisegate_channel, noisegate_channel);
+        send_command_to_host_float(sys_serial_event_type_noisegate_decay, noisegate_decay);
+        send_command_to_host_float(sys_serial_event_type_noisegate_threshold, noisegate_threshold);
+        send_command_to_host_float(sys_serial_event_type_pedalboard_gain, pedalboard_gain);
+    }
+
     if (! __sync_bool_compare_and_swap(&sys_host_has_msgs, 1, 0))
         return;
 
@@ -440,6 +450,9 @@ void sys_host_process(struct sp_port* const serialport)
 
         switch (etype)
         {
+        case sys_serial_event_type_req_io_values:
+            hmi_io_values_requested = true;
+            break;
         case sys_serial_event_type_unassign:
             hmi_command_cache_remove(page, subpage, msg);
             break;
