@@ -450,8 +450,18 @@ void sys_host_process(struct sp_port* const serialport)
 
         switch (etype)
         {
-        case sys_serial_event_type_req_io_values:
-            hmi_io_values_requested = true;
+        case sys_serial_event_type_special_req:
+            if (strcmp(msg, "restart") == 0)
+            {
+                hmi_io_values_requested = true;
+                hmi_page = 0;
+                hmi_subpage = 0;
+            }
+            else if (strcmp(msg, "pages") == 0)
+            {
+                hmi_page = page;
+                hmi_subpage = subpage;
+            }
             break;
         case sys_serial_event_type_unassign:
             hmi_command_cache_remove(page, subpage, msg);
