@@ -76,7 +76,7 @@ static bool read_host_values(void)
         return false;
     if (crelease < 50.0f || crelease > 500.0f)
         return false;
-    if (pgain < -80.0f || pgain > 20.0f)
+    if (pgain < -30.0f || pgain > 20.0f)
         return false;
     if (ngchannel < 0 || ngchannel > 3)
         return false;
