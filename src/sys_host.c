@@ -82,7 +82,7 @@ static bool read_host_values(void)
         return false;
     if (ngdecay < 1.0f || ngdecay > 500.0f)
         return false;
-    if (ngthreshold < -80.0f || ngthreshold > -10.0f)
+    if (ngthreshold < -70.0f || ngthreshold > -10.0f)
         return false;
 
     if (s_debug) {
