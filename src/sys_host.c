@@ -93,10 +93,11 @@ static bool read_host_values(void)
     // all good!
     compressor_mode = cmode;
     compressor_release = crelease;
-    pedalboard_gain = pgain;
     noisegate_channel = ngchannel;
     noisegate_decay = ngdecay;
     noisegate_threshold = ngthreshold;
+    // NOTE we do not read/restore PB gain, but leave the code as-is in case this changes in the future
+    pedalboard_gain = 0.0f;
     return true;
 }
 
