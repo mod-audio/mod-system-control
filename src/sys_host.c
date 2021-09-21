@@ -457,11 +457,13 @@ void sys_host_process(struct sp_port* const serialport)
                 hmi_io_values_requested = true;
                 hmi_page = 0;
                 hmi_subpage = 0;
+                pedalboard_gain = 0.0f;
             }
             else if (strcmp(msg, "pages") == 0)
             {
                 hmi_page = page;
                 hmi_subpage = subpage;
+                pedalboard_gain = 0.0f;
             }
             break;
         case sys_serial_event_type_unassign:
