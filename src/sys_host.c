@@ -219,7 +219,7 @@ static bool hmi_command_cache_add(const uint8_t page,
         matching_subpage = subpage == hmi_subpage;
     }
 
-    const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
+    const size_t index = page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
     hmi_cache_t* cache = hmi_cache[index];
 
     if (cache == NULL)
@@ -340,7 +340,7 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
         subpage = 0;
 #endif
 
-    const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
+    const size_t index = page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
 
     if (s_debug)
     {
