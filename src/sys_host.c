@@ -85,7 +85,8 @@ static bool read_host_values(void)
     if (ngthreshold < -70.0f || ngthreshold > -10.0f)
         return false;
 
-    if (s_debug) {
+    if (s_debug)
+    {
         printf("%s success, values: %i, %f, %f, %i, %f, %f\n",
                __func__, cmode, crelease, pgain, ngchannel, ngdecay, ngthreshold);
         fflush(stdout);
@@ -169,7 +170,8 @@ static bool hmi_command_cache_add(const uint8_t page,
     {
         if (actuator[i] < '0' || actuator[i] > '9')
         {
-            if (s_debug) {
+            if (s_debug)
+            {
                 printf("%s: invalid initial byte at %d %d:%c, args were: %u, %u, %02x:%s, '%s'\n",
                        __func__, i, actuator[i], actuator[i],
                        page, subpage, etype, sys_serial_event_type_to_str(etype), msg);
@@ -181,7 +183,8 @@ static bool hmi_command_cache_add(const uint8_t page,
 
     if (actuator[sizeof(actuator)-1] != '\0')
     {
-        if (s_debug) {
+        if (s_debug)
+        {
             printf("%s: invalid last byte %d:%c, args were: %u, %u, %02x:%s, '%s'\n",
                    __func__, actuator[sizeof(actuator)-1], actuator[sizeof(actuator)-1],
                    page, subpage, etype, sys_serial_event_type_to_str(etype), msg);
@@ -194,7 +197,8 @@ static bool hmi_command_cache_add(const uint8_t page,
 
     if (actuatorId >= HMI_NUM_ACTUATORS)
     {
-        if (s_debug) {
+        if (s_debug)
+        {
             printf("%s: out of bounds actuatorId %d\n", __func__, actuatorId);
             fflush(stdout);
         }
@@ -255,14 +259,14 @@ static bool hmi_command_cache_add(const uint8_t page,
         break;
     }
 
-    if (s_debug) {
-        if (ret) {
+    if (s_debug)
+    {
+        if (ret)
             printf("%s: page and subpage %u,%u are currently active, will cache and trigger HMI now\n",
                    __func__, page, subpage);
-        } else {
+        else
             printf("%s: page and subpage %u,%u are NOT currently active, will only cache\n",
                    __func__, page, subpage);
-        }
         fflush(stdout);
     }
 
@@ -271,7 +275,8 @@ static bool hmi_command_cache_add(const uint8_t page,
 
 static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char msg[SYS_SERIAL_SHM_DATA_SIZE])
 {
-    if (s_debug) {
+    if (s_debug)
+    {
         printf("%s called with values: %u, %u, '%s'\n", __func__, page, subpage, msg);
         fflush(stdout);
     }
@@ -320,7 +325,14 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
     const int actuatorId = atoi(actuator);
 
     if (actuatorId >= HMI_NUM_ACTUATORS)
+    {
+        if (s_debug)
+        {
+            printf("%s: out of bounds actuatorId %d\n", __func__, actuatorId);
+            fflush(stdout);
+        }
         return;
+    }
 
 #ifdef _MOD_DEVICE_DWARF
     // special exception for dwarf
@@ -330,7 +342,8 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
 
     const size_t index = hmi_page * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS + subpage * HMI_NUM_ACTUATORS + actuatorId;
 
-    if (s_debug) {
+    if (s_debug)
+    {
         printf("%s has index %lu and cache pointer %p\n", __func__, index, hmi_cache[index]);
         fflush(stdout);
     }
@@ -442,6 +455,9 @@ static void sys_host_resend_hmi(struct sp_port* const serialport)
         if (cache == NULL)
             continue;
 
+        printf("%s: found cache with index %lu %p; page and subpage %u,%u\n",
+               __func__, index, cache, hmi_page, subpage);
+
         if (cache->led[0] != '\0')
         {
             memcpy(msg, cache->led, sizeof(cache->led));
@@ -473,6 +489,25 @@ static void sys_host_resend_hmi(struct sp_port* const serialport)
     {
         fputs("\n", stdout);
         fflush(stdout);
+    }
+}
+
+static void sys_host_reset(const uint8_t page, const uint8_t subpage)
+{
+    hmi_page = page;
+    hmi_subpage = subpage;
+    pedalboard_gain = 0.0f;
+
+    hmi_cache_t* cache;
+    for (int i=0; i<HMI_NUM_PAGES * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS; ++i)
+    {
+        cache = hmi_cache[i];
+
+        if (cache == NULL)
+            continue;
+
+        free(hmi_cache[i]);
+        hmi_cache[i] = NULL;
     }
 }
 
@@ -550,15 +585,11 @@ void sys_host_process(struct sp_port* const serialport)
             if (strcmp(msg, "restart") == 0)
             {
                 hmi_io_values_requested = true;
-                hmi_page = 0;
-                hmi_subpage = 0;
-                pedalboard_gain = 0.0f;
+                sys_host_reset(0, 0);
             }
             else if (strcmp(msg, "pages") == 0)
             {
-                hmi_page = page;
-                hmi_subpage = subpage;
-                pedalboard_gain = 0.0f;
+                sys_host_reset(page, subpage);
             }
             break;
         case sys_serial_event_type_unassign:
