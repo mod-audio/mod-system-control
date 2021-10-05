@@ -88,6 +88,7 @@ static bool read_host_values(void)
     if (s_debug) {
         printf("%s success, values: %i, %f, %f, %i, %f, %f\n",
                __func__, cmode, crelease, pgain, ngchannel, ngdecay, ngthreshold);
+        fflush(stdout);
     }
 
     // all good!
@@ -155,20 +156,50 @@ static bool hmi_command_cache_add(const uint8_t page,
     char actuator[8];
     memset(actuator, 0, sizeof(actuator));
     for (uint8_t i=0; i<sizeof(actuator) && msg[i] != '\0'; ++i)
+    {
         if ((actuator[i] = msg[i]) == ' ')
+        {
             actuator[i] = '\0';
+            break;
+        }
+    }
 
     // sanity check
     for (uint8_t i=0; i < sizeof(actuator) && actuator[i] != '\0'; ++i)
+    {
         if (actuator[i] < '0' || actuator[i] > '9')
+        {
+            if (s_debug) {
+                printf("%s: invalid initial byte at %d %d:%c, args were: %u, %u, %02x:%s, '%s'\n",
+                       __func__, i, actuator[i], actuator[i],
+                       page, subpage, etype, sys_serial_event_type_to_str(etype), msg);
+                fflush(stdout);
+            }
             return false;
+        }
+    }
+
     if (actuator[sizeof(actuator)-1] != '\0')
+    {
+        if (s_debug) {
+            printf("%s: invalid last byte %d:%c, args were: %u, %u, %02x:%s, '%s'\n",
+                   __func__, actuator[sizeof(actuator)-1], actuator[sizeof(actuator)-1],
+                   page, subpage, etype, sys_serial_event_type_to_str(etype), msg);
+            fflush(stdout);
+        }
         return false;
+    }
 
     const int actuatorId = atoi(actuator);
 
     if (actuatorId >= HMI_NUM_ACTUATORS)
+    {
+        if (s_debug) {
+            printf("%s: out of bounds actuatorId %d\n", __func__, actuatorId);
+            fflush(stdout);
+        }
         return false;
+    }
 
     bool matching_subpage;
 #ifdef _MOD_DEVICE_DWARF
@@ -192,7 +223,13 @@ static bool hmi_command_cache_add(const uint8_t page,
         hmi_cache[index] = cache = calloc(1, sizeof(hmi_cache_t));
 
         if (cache == NULL)
+        {
+            if (s_debug) {
+                printf("%s: failed to allocate memory\n", __func__);
+                fflush(stdout);
+            }
             return false;
+        }
     }
 
     const bool ret = page == hmi_page && matching_subpage;
@@ -218,8 +255,15 @@ static bool hmi_command_cache_add(const uint8_t page,
         break;
     }
 
-    if (s_debug && !ret) {
-        printf("%s cached: %u, %u, '%s'\n", __func__, page, subpage, msg);
+    if (s_debug) {
+        if (ret) {
+            printf("%s: page and subpage %u,%u are currently active, will cache and trigger HMI now\n",
+                   __func__, page, subpage);
+        } else {
+            printf("%s: page and subpage %u,%u are NOT currently active, will only cache\n",
+                   __func__, page, subpage);
+        }
+        fflush(stdout);
     }
 
     return ret;
@@ -229,6 +273,7 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
 {
     if (s_debug) {
         printf("%s called with values: %u, %u, '%s'\n", __func__, page, subpage, msg);
+        fflush(stdout);
     }
     if (page >= HMI_NUM_PAGES)
         return;
@@ -263,6 +308,7 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
 
     if (s_debug) {
         printf("%s has index %lu and cache pointer %p\n", __func__, index, hmi_cache[index]);
+        fflush(stdout);
     }
 
     if (hmi_cache[index] != NULL)
@@ -323,6 +369,12 @@ static void send_command_to_host(const sys_serial_event_type etype, const char* 
 
     if (! sys_serial_write(data, etype, value))
         return;
+
+    if (s_debug)
+    {
+        fprintf(stdout, "send_command_to_host %02x:%s '%s'\n", etype, sys_serial_event_type_to_str(etype), value);
+        fflush(stdout);
+    }
 
     sem_post(&data->sem);
 }
@@ -392,6 +444,12 @@ static void sys_host_resend_hmi(struct sp_port* const serialport)
             send_command_to_hmi(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, msg, false);
         }
     }
+
+    if (s_debug)
+    {
+        fputs("\n", stdout);
+        fflush(stdout);
+    }
 }
 
 void sys_host_setup(const bool debug)
@@ -433,6 +491,12 @@ void sys_host_process(struct sp_port* const serialport)
         send_command_to_host_float(sys_serial_event_type_noisegate_decay, noisegate_decay);
         send_command_to_host_float(sys_serial_event_type_noisegate_threshold, noisegate_threshold);
         send_command_to_host_float(sys_serial_event_type_pedalboard_gain, pedalboard_gain);
+
+        if (s_debug)
+        {
+            fputs("\n", stdout);
+            fflush(stdout);
+        }
     }
 
     if (! __sync_bool_compare_and_swap(&sys_host_has_msgs, 1, 0))
@@ -448,6 +512,13 @@ void sys_host_process(struct sp_port* const serialport)
     {
         if (! sys_serial_read(data, &etype, &page, &subpage, msg))
             continue;
+
+        if (s_debug)
+        {
+            fprintf(stdout, "Received message from host %u %u %02x:%s '%s'\n",
+                    page, subpage, etype, sys_serial_event_type_to_str(etype), msg);
+            fflush(stdout);
+        }
 
         switch (etype)
         {
@@ -491,6 +562,12 @@ void sys_host_process(struct sp_port* const serialport)
             break;
         default:
             break;
+        }
+
+        if (s_debug)
+        {
+            fputs("\n", stdout);
+            fflush(stdout);
         }
     }
 }
@@ -582,7 +659,20 @@ void sys_host_set_pedalboard_gain(const float value)
 void sys_host_set_hmi_page(const int page)
 {
     if (hmi_page == page)
+    {
+        if (s_debug)
+        {
+            fprintf(stdout, "active page remains at %d\n", page);
+            fflush(stdout);
+        }
         return;
+    }
+
+    if (s_debug)
+    {
+        fprintf(stdout, "active page changed to %d\n", page);
+        fflush(stdout);
+    }
 
     hmi_page = page;
     hmi_page_or_subpage_changed = 1;
@@ -591,7 +681,20 @@ void sys_host_set_hmi_page(const int page)
 void sys_host_set_hmi_subpage(const int subpage)
 {
     if (hmi_subpage == subpage)
+    {
+        if (s_debug)
+        {
+            fprintf(stdout, "active subpage remains at %d\n", subpage);
+            fflush(stdout);
+        }
         return;
+    }
+
+    if (s_debug)
+    {
+        fprintf(stdout, "active subpage changed to %d\n", subpage);
+        fflush(stdout);
+    }
 
     hmi_subpage = subpage;
     hmi_page_or_subpage_changed = 1;

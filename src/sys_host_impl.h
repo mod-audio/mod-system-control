@@ -40,6 +40,43 @@ typedef enum {
     sys_serial_event_type_pedalboard_gain = 0x80 + 'g'
 } sys_serial_event_type;
 
+static inline
+const char* sys_serial_event_type_to_str(const sys_serial_event_type etype)
+{
+    switch (etype)
+    {
+    case sys_serial_event_type_null:
+        return "sys_serial_event_type_null";
+    case sys_serial_event_type_special_req:
+        return "sys_serial_event_type_special_req";
+    case sys_serial_event_type_unassign:
+        return "sys_serial_event_type_unassign";
+    case sys_serial_event_type_led:
+        return "sys_serial_event_type_led";
+    case sys_serial_event_type_name:
+        return "sys_serial_event_type_name";
+    case sys_serial_event_type_value:
+        return "sys_serial_event_type_value";
+    case sys_serial_event_type_unit:
+        return "sys_serial_event_type_unit";
+    case sys_serial_event_type_widget_indicator:
+        return "sys_serial_event_type_widget_indicator";
+    case sys_serial_event_type_compressor_mode:
+        return "sys_serial_event_type_compressor_mode";
+    case sys_serial_event_type_compressor_release:
+        return "sys_serial_event_type_compressor_release";
+    case sys_serial_event_type_noisegate_channel:
+        return "sys_serial_event_type_noisegate_channel";
+    case sys_serial_event_type_noisegate_decay:
+        return "sys_serial_event_type_noisegate_decay";
+    case sys_serial_event_type_noisegate_threshold:
+        return "sys_serial_event_type_noisegate_threshold";
+    case sys_serial_event_type_pedalboard_gain:
+        return "sys_serial_event_type_pedalboard_gain";
+    }
+    return "unknown";
+}
+
 typedef struct {
     // semaphore for syncing
     sem_t sem;
