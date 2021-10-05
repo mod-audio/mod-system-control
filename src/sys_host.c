@@ -283,15 +283,39 @@ static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char m
     char actuator[8];
     memset(actuator, 0, sizeof(actuator));
     for (uint8_t i=0; i<sizeof(actuator) && msg[i] != '\0'; ++i)
+    {
         if ((actuator[i] = msg[i]) == ' ')
+        {
             actuator[i] = '\0';
+            break;
+        }
+    }
 
     // sanity check
     for (uint8_t i=0; i < sizeof(actuator) && actuator[i] != '\0'; ++i)
+    {
         if (actuator[i] < '0' || actuator[i] > '9')
+        {
+            if (s_debug)
+            {
+                printf("%s: invalid initial byte at %d %d:%c, args were: %u, %u,'%s'\n",
+                       __func__, i, actuator[i], actuator[i], page, subpage, msg);
+                fflush(stdout);
+            }
             return;
+        }
+    }
+
     if (actuator[sizeof(actuator)-1] != '\0')
+    {
+        if (s_debug)
+        {
+            printf("%s: invalid last byte %d:%c, args were: %u, %u, '%s'\n",
+                   __func__, actuator[sizeof(actuator)-1], actuator[sizeof(actuator)-1], page, subpage, msg);
+            fflush(stdout);
+        }
         return;
+    }
 
     const int actuatorId = atoi(actuator);
 
@@ -670,11 +694,12 @@ void sys_host_set_hmi_page(const int page)
 
     if (s_debug)
     {
-        fprintf(stdout, "active page changed to %d\n", page);
+        fprintf(stdout, "active page changed to %d, plus subpage resets to 0\n", page);
         fflush(stdout);
     }
 
     hmi_page = page;
+    hmi_subpage = 0;
     hmi_page_or_subpage_changed = 1;
 }
 
