@@ -98,8 +98,7 @@ static bool read_host_values(void)
     noisegate_channel = ngchannel;
     noisegate_decay = ngdecay;
     noisegate_threshold = ngthreshold;
-    // NOTE we do not read/restore PB gain, but leave the code as-is in case this changes in the future
-    pedalboard_gain = 0.0f;
+    pedalboard_gain = pgain;
     return true;
 }
 
@@ -496,7 +495,7 @@ static void sys_host_reset(const uint8_t page, const uint8_t subpage)
 {
     hmi_page = page;
     hmi_subpage = subpage;
-    pedalboard_gain = 0.0f;
+    // pedalboard_gain = 0.0f;
 
     hmi_cache_t* cache;
     for (int i=0; i<HMI_NUM_PAGES * HMI_NUM_SUBPAGES * HMI_NUM_ACTUATORS; ++i)
