@@ -48,7 +48,8 @@ static float noisegate_threshold = -60.0f;
 // page cache handling
 typedef struct HMI_CACHE_T {
     // values match mod-host message size
-    char led[32];
+    char led_blink[32];
+    char led_brightness[32];
     char label[24];
     char value[24];
     char unit[24];
@@ -239,8 +240,11 @@ static bool hmi_command_cache_add(const uint8_t page,
 
     switch (etype)
     {
-    case sys_serial_event_type_led:
-        strncpy(cache->led, msg, sizeof(cache->led)-1);
+    case sys_serial_event_type_led_blink:
+        strncpy(cache->led_blink, msg, sizeof(cache->led_blink)-1);
+        break;
+    case sys_serial_event_type_led_brightness:
+        strncpy(cache->led_brightness, msg, sizeof(cache->led_brightness)-1);
         break;
     case sys_serial_event_type_name:
         strncpy(cache->label, msg, sizeof(cache->label)-1);
@@ -457,10 +461,15 @@ static void sys_host_resend_hmi(struct sp_port* const serialport)
         printf("%s: found cache with index %lu %p; page and subpage %u,%u\n",
                __func__, index, cache, hmi_page, subpage);
 
-        if (cache->led[0] != '\0')
+        if (cache->led_blink[0] != '\0')
         {
-            memcpy(msg, cache->led, sizeof(cache->led));
-            send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED, msg, false);
+            memcpy(msg, cache->led_blink, sizeof(cache->led_blink));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED_BLINK, msg, false);
+        }
+        if (cache->led_brightness[0] != '\0')
+        {
+            memcpy(msg, cache->led_brightness, sizeof(cache->led_brightness));
+            send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED_BRIGHTNESS, msg, false);
         }
         if (cache->label[0] != '\0')
         {
@@ -594,9 +603,13 @@ void sys_host_process(struct sp_port* const serialport)
         case sys_serial_event_type_unassign:
             hmi_command_cache_remove(page, subpage, msg);
             break;
-        case sys_serial_event_type_led:
+        case sys_serial_event_type_led_blink:
             if (hmi_command_cache_add(page, subpage, etype, msg))
-                send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED, msg, false);
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED_BLINK, msg, false);
+            break;
+        case sys_serial_event_type_led_brightness:
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_CHANGE_LED_BRIGHTNESS, msg, false);
             break;
         case sys_serial_event_type_name:
             if (hmi_command_cache_add(page, subpage, etype, msg))
