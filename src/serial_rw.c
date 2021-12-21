@@ -14,7 +14,7 @@
 #include <string.h>
 
 // in ms
-#define SP_BLOCKING_READ_TIMEOUT 5
+#define SP_BLOCKING_READ_TIMEOUT 20
 
 static inline int imax(const int a, const int b)
 {
