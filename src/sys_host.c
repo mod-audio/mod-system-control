@@ -38,6 +38,12 @@ static float noisegate_threshold = -60.0f;
 #define HMI_NUM_ACTUATORS 6
 #endif
 
+#if defined(_MOD_DEVICE_DUOX)
+#define HMI_NUM_PAGES 6
+#define HMI_NUM_SUBPAGES 1
+#define HMI_NUM_ACTUATORS 14
+#endif
+
 // fallback
 #ifndef HMI_NUM_PAGES
 #define HMI_NUM_PAGES 1
