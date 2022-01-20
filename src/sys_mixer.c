@@ -38,6 +38,12 @@ static void handle_postponed_message(const amixer_msg* const msg)
 
         execute_ignoring_output(NULL, argv, s_debug);
     }
+    else if (msg->channel == 'v')
+    {
+        const char* argv[] = { "mod-amixer", msg->control, msg->value, NULL };
+
+        execute_ignoring_output(NULL, argv, s_debug);
+    }
     // gain mode
     else
     {
@@ -146,4 +152,79 @@ void sys_mixer_headphone(const char* value)
 
     if (s_debug)
         printf("%s: postponing amixer hp gain value set\n", __func__);
+}
+
+void sys_mixer_cv_exp_toggle(const char* value)
+{
+    pthread_mutex_lock(&last_amixer_mutex);
+
+    // trigger previously cached value if does not match current one
+    if (last_amixer_msg.valid && (last_amixer_msg.channel != 'v' ||
+                                  strcmp(last_amixer_msg.control, "cvexp") != 0))
+    {
+        handle_postponed_message(&last_amixer_msg);
+    }
+
+    // cache request for later handling
+    last_amixer_msg.valid = true;
+    last_amixer_msg.input = false;
+    last_amixer_msg.channel = 'v';
+    strcpy(last_amixer_msg.control, "cvexp");
+    strncpy(last_amixer_msg.value, value, sizeof(last_amixer_msg.value)-1);
+
+    sem_post(&sys_mixer_semaphore);
+    pthread_mutex_unlock(&last_amixer_mutex);
+
+    if (s_debug)
+        printf("%s: postponing amixer cv exp toggle\n", __func__);
+}
+
+void sys_mixer_exp_mode(const char* value)
+{
+    pthread_mutex_lock(&last_amixer_mutex);
+
+    // trigger previously cached value if does not match current one
+    if (last_amixer_msg.valid && (last_amixer_msg.channel != 'v' ||
+                                  strcmp(last_amixer_msg.control, "exppedal") != 0))
+    {
+        handle_postponed_message(&last_amixer_msg);
+    }
+
+    // cache request for later handling
+    last_amixer_msg.valid = true;
+    last_amixer_msg.input = false;
+    last_amixer_msg.channel = 'v';
+    strcpy(last_amixer_msg.control, "exppedal");
+    strncpy(last_amixer_msg.value, value, sizeof(last_amixer_msg.value)-1);
+
+    sem_post(&sys_mixer_semaphore);
+    pthread_mutex_unlock(&last_amixer_mutex);
+
+    if (s_debug)
+        printf("%s: postponing amixer exp mode set\n", __func__);
+}
+
+void sys_mixer_cv_headphone_toggle(const char* value)
+{
+    pthread_mutex_lock(&last_amixer_mutex);
+
+    // trigger previously cached value if does not match current one
+    if (last_amixer_msg.valid && (last_amixer_msg.channel != 'v' ||
+                                  strcmp(last_amixer_msg.control, "cvhp") != 0))
+    {
+        handle_postponed_message(&last_amixer_msg);
+    }
+
+    // cache request for later handling
+    last_amixer_msg.valid = true;
+    last_amixer_msg.input = false;
+    last_amixer_msg.channel = 'v';
+    strcpy(last_amixer_msg.control, "cvhp");
+    strncpy(last_amixer_msg.value, value, sizeof(last_amixer_msg.value)-1);
+
+    sem_post(&sys_mixer_semaphore);
+    pthread_mutex_unlock(&last_amixer_mutex);
+
+    if (s_debug)
+        printf("%s: postponing amixer cp hp toggle\n", __func__);
 }

@@ -175,6 +175,57 @@ bool parse_and_reply_to_message(struct sp_port* const serialport, char msg[0xff]
                              : execute_ignoring_output(serialport, argv, debug);
     }
 
+    if (strncmp(msg, CMD_SYS_CVI_MODE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_mixer_cv_exp_toggle(value);
+            return write_or_close(serialport, "r 0");
+        }
+
+        const char* argv[] = { "mod-amixer", "cvexp", NULL };
+
+        return execute_and_write_output_resp(serialport, argv, debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_EXP_MODE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_mixer_exp_mode(value);
+            return write_or_close(serialport, "r 0");
+        }
+
+        const char* argv[] = { "mod-amixer", "exppedal", NULL };
+
+        return execute_and_write_output_resp(serialport, argv, debug);
+    }
+
+    if (strncmp(msg, CMD_SYS_CVO_MODE, _CMD_SYS_LENGTH) == 0)
+    {
+        const char* const value = strlen(msg) > SYS_CMD_ARG_START
+                                ? msg + SYS_CMD_ARG_START
+                                : NULL;
+
+        if (value != NULL)
+        {
+            sys_mixer_cv_headphone_toggle(value);
+            return write_or_close(serialport, "r 0");
+        }
+
+        const char* argv[] = { "mod-amixer", "cvhp", NULL };
+
+        return execute_and_write_output_resp(serialport, argv, debug);
+    }
+
     if (strncmp(msg, CMD_SYS_AMIXER_SAVE, _CMD_SYS_LENGTH) == 0)
     {
         const char* argv[] = { "mod-amixer", "save", NULL };
