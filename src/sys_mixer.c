@@ -38,6 +38,7 @@ static void handle_postponed_message(const amixer_msg* const msg)
 
         execute_ignoring_output(NULL, argv, s_debug);
     }
+    // cv related stuff
     else if (msg->channel == 'v')
     {
         const char* argv[] = { "mod-amixer", msg->control, msg->value, NULL };
@@ -226,5 +227,5 @@ void sys_mixer_cv_headphone_toggle(const char* value)
     pthread_mutex_unlock(&last_amixer_mutex);
 
     if (s_debug)
-        printf("%s: postponing amixer cp hp toggle\n", __func__);
+        printf("%s: postponing amixer cv hp toggle\n", __func__);
 }

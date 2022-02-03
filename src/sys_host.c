@@ -32,23 +32,19 @@ static int noisegate_channel = 0;
 static float noisegate_decay = 10.0f;
 static float noisegate_threshold = -60.0f;
 
-#if defined(_MOD_DEVICE_DWARF)
-#define HMI_NUM_PAGES 8
-#define HMI_NUM_SUBPAGES 3
-#define HMI_NUM_ACTUATORS 6
-#endif
-
 #if defined(_MOD_DEVICE_DUOX)
-#define HMI_NUM_PAGES 6
-#define HMI_NUM_SUBPAGES 1
-#define HMI_NUM_ACTUATORS 14
-#endif
-
-// fallback
-#ifndef HMI_NUM_PAGES
-#define HMI_NUM_PAGES 1
-#define HMI_NUM_SUBPAGES 1
-#define HMI_NUM_ACTUATORS 2
+ #define HMI_NUM_PAGES 6
+ #define HMI_NUM_SUBPAGES 1
+ #define HMI_NUM_ACTUATORS 14
+#elif defined(_MOD_DEVICE_DWARF)
+ #define HMI_NUM_PAGES 8
+ #define HMI_NUM_SUBPAGES 3
+ #define HMI_NUM_ACTUATORS 6
+#else
+ // fallback, so just it builds for local testing
+ #define HMI_NUM_PAGES 1
+ #define HMI_NUM_SUBPAGES 1
+ #define HMI_NUM_ACTUATORS 2
 #endif
 
 // page cache handling
