@@ -238,27 +238,46 @@ static bool hmi_command_cache_add(const uint8_t page,
         }
     }
 
-    const bool ret = page == hmi_page && matching_subpage;
+    const bool match_pages = page == hmi_page && matching_subpage;
+    bool match_content = false;
 
     switch (etype)
     {
     case sys_serial_event_type_led_blink:
-        strncpy(cache->led_blink, msg, sizeof(cache->led_blink)-1);
+        if (strncmp(cache->led_blink, msg, sizeof(cache->led_blink)-1) != 0)
+            strncpy(cache->led_blink, msg, sizeof(cache->led_blink)-1);
+        else
+            match_content = true;
         break;
     case sys_serial_event_type_led_brightness:
-        strncpy(cache->led_brightness, msg, sizeof(cache->led_brightness)-1);
+        if (strncmp(cache->led_brightness, msg, sizeof(cache->led_brightness)-1) != 0)
+            strncpy(cache->led_brightness, msg, sizeof(cache->led_brightness)-1);
+        else
+            match_content = true;
         break;
     case sys_serial_event_type_name:
-        strncpy(cache->label, msg, sizeof(cache->label)-1);
+        if (strncmp(cache->label, msg, sizeof(cache->label)-1) != 0)
+            strncpy(cache->label, msg, sizeof(cache->label)-1);
+        else
+            match_content = true;
         break;
     case sys_serial_event_type_unit:
-        strncpy(cache->unit, msg, sizeof(cache->unit)-1);
+        if (strncmp(cache->unit, msg, sizeof(cache->unit)-1) != 0)
+            strncpy(cache->unit, msg, sizeof(cache->unit)-1);
+        else
+            match_content = true;
         break;
     case sys_serial_event_type_value:
-        strncpy(cache->value, msg, sizeof(cache->value)-1);
+        if (strncmp(cache->value, msg, sizeof(cache->value)-1) != 0)
+            strncpy(cache->value, msg, sizeof(cache->value)-1);
+        else
+            match_content = true;
         break;
     case sys_serial_event_type_widget_indicator:
-        strncpy(cache->indicator, msg, sizeof(cache->indicator)-1);
+        if (strncmp(cache->indicator, msg, sizeof(cache->indicator)-1) != 0)
+            strncpy(cache->indicator, msg, sizeof(cache->indicator)-1);
+        else
+            match_content = true;
         break;
     default:
         break;
@@ -266,16 +285,24 @@ static bool hmi_command_cache_add(const uint8_t page,
 
     if (s_debug)
     {
-        if (ret)
-            printf("%s: page and subpage %u,%u are currently active, will cache and trigger HMI now\n",
-                   __func__, page, subpage);
+        if (match_pages)
+        {
+            if (match_content)
+                printf("%s: page and subpage %u,%u are currently active but new contents match old, ignoring\n",
+                       __func__, page, subpage);
+            else
+                printf("%s: page and subpage %u,%u are currently active, will trigger HMI now with new content\n",
+                       __func__, page, subpage);
+        }
         else
+        {
             printf("%s: page and subpage %u,%u are NOT currently active, will only cache\n",
                    __func__, page, subpage);
+        }
         fflush(stdout);
     }
 
-    return ret;
+    return match_pages && !match_content;
 }
 
 static void hmi_command_cache_remove(const uint8_t page, uint8_t subpage, char msg[SYS_SERIAL_SHM_DATA_SIZE])
