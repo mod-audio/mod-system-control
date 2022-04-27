@@ -32,6 +32,7 @@ typedef enum {
     sys_serial_event_type_value = 0x80 + 'v',
     sys_serial_event_type_unit = 0x80 + 'u',
     sys_serial_event_type_widget_indicator = 0x80 + 'i',
+    sys_serial_event_type_popup = 0x80 + 'p',
     // server -> client
     sys_serial_event_type_compressor_mode = 0x80 + 'm',
     sys_serial_event_type_compressor_release = 0x80 + 'r',
@@ -64,6 +65,8 @@ const char* sys_serial_event_type_to_str(const sys_serial_event_type etype)
         return "sys_serial_event_type_unit";
     case sys_serial_event_type_widget_indicator:
         return "sys_serial_event_type_widget_indicator";
+    case sys_serial_event_type_popup:
+        return "sys_serial_event_type_popup";
     case sys_serial_event_type_compressor_mode:
         return "sys_serial_event_type_compressor_mode";
     case sys_serial_event_type_compressor_release:
@@ -222,6 +225,7 @@ bool sys_serial_read(sys_serial_shm_data_channel* const data,
     case sys_serial_event_type_value:
     case sys_serial_event_type_unit:
     case sys_serial_event_type_widget_indicator:
+    case sys_serial_event_type_popup:
         break;
 #else
     case sys_serial_event_type_compressor_mode:

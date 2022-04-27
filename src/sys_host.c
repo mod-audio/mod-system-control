@@ -279,6 +279,9 @@ static bool hmi_command_cache_add(const uint8_t page,
         else
             match_content = true;
         break;
+    case sys_serial_event_type_popup:
+        // there is no cache for popups, and we allow them to be repeated
+        break;
     default:
         break;
     }
@@ -655,6 +658,10 @@ void sys_host_process(struct sp_port* const serialport)
         case sys_serial_event_type_widget_indicator:
             if (hmi_command_cache_add(page, subpage, etype, msg))
                 send_command_to_hmi(serialport, CMD_SYS_CHANGE_WIDGET_INDICATOR, msg, false);
+            break;
+        case sys_serial_event_type_popup:
+            if (hmi_command_cache_add(page, subpage, etype, msg))
+                send_command_to_hmi(serialport, CMD_SYS_LAUNCH_POPUP, msg, false);
             break;
         default:
             break;
