@@ -23,7 +23,7 @@ static int sys_host_has_msgs;
 static bool s_debug;
 
 // compressor state
-static int compressor_mode = 0;
+static int compressor_mode = 1;
 static float compressor_release = 100.0f;
 static float pedalboard_gain = 0.0f;
 
