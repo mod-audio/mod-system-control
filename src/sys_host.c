@@ -728,7 +728,7 @@ void sys_host_set_compressor_release(const float value)
 {
     compressor_release = value;
     sys_host_values_changed = true;
-    send_command_to_host_int(sys_serial_event_type_compressor_release, value);
+    send_command_to_host_float(sys_serial_event_type_compressor_release, value);
 }
 
 void sys_host_set_noisegate_channel(const int channel)
@@ -742,21 +742,21 @@ void sys_host_set_noisegate_decay(const float value)
 {
     noisegate_decay = value;
     sys_host_values_changed = true;
-    send_command_to_host_int(sys_serial_event_type_noisegate_decay, value);
+    send_command_to_host_float(sys_serial_event_type_noisegate_decay, value);
 }
 
 void sys_host_set_noisegate_threshold(const float value)
 {
     noisegate_threshold = value;
     sys_host_values_changed = true;
-    send_command_to_host_int(sys_serial_event_type_noisegate_threshold, value);
+    send_command_to_host_float(sys_serial_event_type_noisegate_threshold, value);
 }
 
 void sys_host_set_pedalboard_gain(const float value)
 {
     pedalboard_gain = value;
     sys_host_values_changed = true;
-    send_command_to_host_int(sys_serial_event_type_pedalboard_gain, value);
+    send_command_to_host_float(sys_serial_event_type_pedalboard_gain, value);
 }
 
 void sys_host_set_hmi_page(const int page)
