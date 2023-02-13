@@ -24,7 +24,7 @@
     if (execute(argv, debug))
     {
         if (debug)
-            printf("%s(%p) completed successly\n", __func__, argv);
+            printf("%s(%p) completed successfully\n", __func__, argv);
 
         return serialport != NULL ? write_or_close(serialport, "r 0") : true;
     }
@@ -48,7 +48,7 @@ static bool execute_and_write_output_resp(struct sp_port* const serialport, cons
         cmdbuf[3] = ' ';
 
         if (debug)
-            printf("%s(%p) completed successly, responding with '%s'\n", __func__, argv, cmdbuf);
+            printf("%s(%p) completed successfully, responding with '%s'\n", __func__, argv, cmdbuf);
 
         return write_or_close(serialport, cmdbuf);
     }
@@ -72,7 +72,7 @@ static bool read_file_and_write_contents_resp(struct sp_port* const serialport, 
         cmdbuf[3] = ' ';
 
         if (debug)
-            printf("%s(%p) completed successly, responding with '%s'\n", __func__, filename, cmdbuf);
+            printf("%s(%p) completed successfully, responding with '%s'\n", __func__, filename, cmdbuf);
 
         return write_or_close(serialport, cmdbuf);
     }
