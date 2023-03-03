@@ -1,9 +1,14 @@
 
 #pragma once
 
+#if defined(__MOD_DEVICES__) && (__GNUC__ * 100 + __GNUC_MINOR__) < 900
 #define MOD_SEMAPHORE_USE_FUTEX
+#endif
 
-#ifdef MOD_SEMAPHORE_USE_FUTEX
+#ifdef __APPLE__
+#include <mach/mach.h>
+#include <mach/semaphore.h>
+#elif defined(MOD_SEMAPHORE_USE_FUTEX)
 #include <linux/futex.h>
 #include <sys/time.h>
 #include <errno.h>
@@ -11,9 +16,57 @@
 #include <unistd.h>
 #else
 #include <semaphore.h>
+#include <time.h>
+#include <sys/time.h>
 #endif
 
-#ifdef MOD_SEMAPHORE_USE_FUTEX
+#ifdef __APPLE__
+/* --------------------------------------------------------------------- */
+// macOS semaphore
+
+typedef struct _sem_t {
+    semaphore_t s;
+} sem_t;
+
+static inline
+int sem_init(sem_t* sem, int pshared, int value)
+{
+    // unsupported
+    if (pshared)
+        return 1;
+
+    return semaphore_create(mach_task_self(), &sem->s, SYNC_POLICY_FIFO, value) != KERN_SUCCESS;
+}
+
+static inline
+void sem_destroy(sem_t* sem)
+{
+    semaphore_destroy(mach_task_self(), sem->s);
+}
+
+static inline
+void sem_post(sem_t* sem)
+{
+    semaphore_signal(sem->s);
+}
+
+static inline
+int sem_wait(sem_t* sem)
+{
+    return semaphore_wait(sem->s) != KERN_SUCCESS;
+}
+
+// 0 = ok
+static inline
+int sem_timedwait_secs(sem_t* sem, int secs)
+{
+    struct mach_timespec time;
+    time.tv_sec = secs;
+    time.tv_nsec = 0;
+
+    return semaphore_timedwait(sem->s, time) != KERN_SUCCESS;
+}
+#elif defined(MOD_SEMAPHORE_USE_FUTEX)
 /* --------------------------------------------------------------------- */
 // Linux futex
 
@@ -89,9 +142,16 @@ int sem_timedwait_secs(sem_t* sem, int secs)
 static inline
 int sem_timedwait_secs(sem_t* sem, int secs)
 {
+#ifdef __MOD_DEVICES__
+      // verified to be faster vs `clock_gettime`
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      struct timespec timeout = { tv.tv_sec + secs, tv.tv_usec * 1000 };
+#else
       struct timespec timeout;
       clock_gettime(CLOCK_REALTIME, &timeout);
       timeout.tv_sec += secs;
+#endif
       return sem_timedwait(sem, &timeout);
 }
 #endif
